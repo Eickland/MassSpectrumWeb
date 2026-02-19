@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mass Spectrometry Interface</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mass Spectrometry Data Interface</h1>
+            <button id="importBtn" class="btn-primary">Import New Data</button>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <h2>Projects</h2>
+                <div id="projects-list" class="projects-list">
+                    <!-- Projects will be loaded here -->
+                </div>
+            </aside>
+
+            <main class="content">
+                <div id="samples-grid" class="samples-grid">
+                    <!-- Samples will be displayed here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

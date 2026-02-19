@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mass-spec-server:
+    build: .
+    container_name: mass-spec-server
+    ports:
+      - "8080:8080"
+    volumes:
+      # Монтируем папку с данными с Windows
+      - ./data:/data/windows
+      # Для кэширования данных
+      - ./cache:/root/cache
+    environment:
+      - TZ=Europe/Moscow
+    restart: unless-stopped

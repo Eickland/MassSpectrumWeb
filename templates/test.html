@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Image Loading</title>
+</head>
+<body>
+    <h1>Test Image Loading</h1>
+    
+    <h2>Debug Info:</h2>
+    <div id="debug"></div>
+    
+    <h2>Test Images:</h2>
+    <div id="images"></div>
+
+    <script>
+        async function testImages() {
+            // Получаем список файлов
+            const response = await fetch('/debug/files');
+            const data = await response.json();
+            
+            document.getElementById('debug').innerHTML = `
+                <p>Graph path: ${data.graph_path}</p>
+                <p>Files found: ${data.files.length}</p>
+                <ul>
+                    ${data.files.map(f => `<li>${f}</li>`).join('')}
+                </ul>
+            `;
+            
+            // Пробуем загрузить каждое изображение
+            const imagesDiv = document.getElementById('images');
+            for (const file of data.files) {
+                const img = document.createElement('img');
+                img.src = `/data/graphs/${file}`;
+                img.style.maxWidth = '200px';
+                img.style.margin = '10px';
+                img.onload = () => console.log(`✅ Loaded: ${file}`);
+                img.onerror = (e) => console.error(`❌ Failed to load: ${file}`, e);
+                
+                const div = document.createElement('div');
+                div.innerHTML = `<p>${file}: </p>`;
+                div.appendChild(img);
+                imagesDiv.appendChild(div);
+            }
+        }
+        
+        testImages();
+    </script>
+</body>
+</html>
