@@ -20,7 +20,7 @@ func main() {
 	// Пытаемся взять путь из переменной окружения, если нет - используем дефолт
 	containerDataPath := os.Getenv("DATA_PATH")
 	if containerDataPath == "" {
-		containerDataPath = "./data" // Для локального запуска вне Docker
+		containerDataPath = "/data" // Для локального запуска вне Docker
 	}
 
 	// Проверка существования
