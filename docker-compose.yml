@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   mass-spec-server:
     build: .
@@ -7,10 +6,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Монтируем папку с данными с Windows
-      - ./data:/data/windows
-      # Для кэширования данных
-      - ./cache:/root/cache
+      # Все содержимое папки ./data на Windows попадет в /data внутри Linux
+      - ./data:/data 
     environment:
+      - DATA_PATH=/data
       - TZ=Europe/Moscow
     restart: unless-stopped

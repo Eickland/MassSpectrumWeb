@@ -15,20 +15,17 @@ import (
 )
 
 func main() {
-	// Инициализация роутера
 	r := mux.NewRouter()
 
-	// **ИЗМЕНЕНО**: Путь к данным в контейнере
-	containerDataPath := "/data/windows"
+	// Пытаемся взять путь из переменной окружения, если нет - используем дефолт
+	containerDataPath := os.Getenv("DATA_PATH")
+	if containerDataPath == "" {
+		containerDataPath = "./data" // Для локального запуска вне Docker
+	}
 
-	// **ВАЖНО**: Проверяем, что папка существует и не пуста
+	// Проверка существования
 	if _, err := os.Stat(containerDataPath); os.IsNotExist(err) {
-		log.Printf("WARNING: Data path %s does not exist in container!", containerDataPath)
-
-		// Пробуем создать папку
-		if err := os.MkdirAll(containerDataPath, 0755); err != nil {
-			log.Printf("Failed to create data directory: %v", err)
-		}
+		log.Fatalf("CRITICAL: Data path %s does not exist!", containerDataPath)
 	}
 
 	labJournalPath := filepath.Join(containerDataPath, "lab_journal.xlsx")

@@ -28,7 +28,7 @@ COPY --from=builder /app/static ./static
 COPY --from=builder /app/templates ./templates
 
 # Create data directory
-RUN mkdir -p /data/windows
+RUN mkdir /data
 
 # Expose port
 EXPOSE 8080

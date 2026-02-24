@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,41 +34,41 @@ func NewSampleHandler(dataPath string, labJournal *models.LabJournal) *SampleHan
 func (h *SampleHandler) RefreshSamples() error {
 	newSamples := make(map[string]models.Sample)
 
-	// Путь к папке с графиками - теперь используем h.dataPath напрямую
-	// вместо создания подпапки "graphs"
+	// Используем h.dataPath (который теперь указывает прямо на /data)
 	graphsPath := h.dataPath
 
-	// Читаем все файлы в папке
 	files, err := os.ReadDir(graphsPath)
 	if err != nil {
 		return err
 	}
 
+	// Белый список расширений для графиков
+	supportedExts := map[string]bool{
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".gif":  true,
+		".svg":  true,
+		".pdf":  true,
+	}
+
 	for _, file := range files {
-		if file.IsDir() {
+		// Игнорируем папки и скрытые файлы (начинающиеся с точки)
+		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
 
-		// Получаем имя файла без расширения
 		fileName := file.Name()
-		ext := filepath.Ext(fileName)
-		nameWithoutExt := strings.TrimSuffix(fileName, ext)
+		ext := strings.ToLower(filepath.Ext(fileName))
 
-		// Проверяем, поддерживается ли формат
-		supportedExts := map[string]bool{
-			".png":  true,
-			".jpg":  true,
-			".jpeg": true,
-			".gif":  true,
-			".svg":  true,
-			".pdf":  true,
-		}
-
-		if !supportedExts[strings.ToLower(ext)] {
+		// Пропускаем, если расширение не в белом списке (автоматически проигнорирует .xlsx)
+		if !supportedExts[ext] {
 			continue
 		}
 
-		// Проверяем, есть ли информация об образце в лаб журнале
+		nameWithoutExt := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+		// Ищем данные в журнале
 		sampleInfo, exists := h.labJournal.Samples[nameWithoutExt]
 		project := "Uncategorized"
 		description := ""
@@ -77,39 +78,35 @@ func (h *SampleHandler) RefreshSamples() error {
 			description = sampleInfo.Description
 		}
 
-		// Создаем или обновляем образец
+		// Подготавливаем объект графика
+		newGraph := models.Graph{
+			Name:     fileName,
+			FilePath: "/data/" + fileName, // URL для фронтенда
+			FileType: strings.TrimPrefix(ext, "."),
+		}
+
 		if existingSample, ok := newSamples[nameWithoutExt]; ok {
-			// Добавляем график к существующему образцу
-			existingSample.Graphs = append(existingSample.Graphs, models.Graph{
-				Name: fileName,
-				// URL для доступа через сервер (должен соответствовать статическому роутингу)
-				FilePath: "/data/" + fileName,
-				FileType: strings.TrimPrefix(ext, "."),
-				IsMain:   len(existingSample.Graphs) == 0,
-			})
-			existingSample.HasMultiple = len(existingSample.Graphs) > 1
+			// Если образец уже есть, добавляем график в список
+			newGraph.IsMain = false
+			existingSample.Graphs = append(existingSample.Graphs, newGraph)
+			existingSample.HasMultiple = true
 			newSamples[nameWithoutExt] = existingSample
 		} else {
 			// Создаем новый образец
+			newGraph.IsMain = true
 			newSamples[nameWithoutExt] = models.Sample{
 				Name:        nameWithoutExt,
 				Project:     project,
 				Description: description,
 				CreatedAt:   time.Now(),
-				Graphs: []models.Graph{
-					{
-						Name:     fileName,
-						FilePath: "/data/" + fileName,
-						FileType: strings.TrimPrefix(ext, "."),
-						IsMain:   true,
-					},
-				},
+				Graphs:      []models.Graph{newGraph},
 				HasMultiple: false,
 			}
 		}
 	}
 
 	h.samples = newSamples
+	log.Printf("Successfully refreshed %d samples from %s", len(h.samples), graphsPath)
 	return nil
 }
 
