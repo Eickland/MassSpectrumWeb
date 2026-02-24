@@ -18,8 +18,21 @@ func main() {
 	// Инициализация роутера
 	r := mux.NewRouter()
 
-	windowsDataPath := "/data/windows" // В контейнере монтируется сюда
-	labJournalPath := filepath.Join(windowsDataPath, "lab_journal.xlsx")
+	// **ИЗМЕНЕНО**: Путь к данным в контейнере
+	containerDataPath := "/data/windows"
+
+	// **ВАЖНО**: Проверяем, что папка существует и не пуста
+	if _, err := os.Stat(containerDataPath); os.IsNotExist(err) {
+		log.Printf("WARNING: Data path %s does not exist in container!", containerDataPath)
+
+		// Пробуем создать папку
+		if err := os.MkdirAll(containerDataPath, 0755); err != nil {
+			log.Printf("Failed to create data directory: %v", err)
+		}
+	}
+
+	labJournalPath := filepath.Join(containerDataPath, "lab_journal.xlsx")
+	log.Printf("Looking for lab journal at: %s", labJournalPath)
 
 	// Загружаем данные из лаб журнала
 	labData, err := models.LoadLabJournal(labJournalPath)
@@ -29,16 +42,14 @@ func main() {
 	}
 
 	// Создаем обработчики
-	// **ВАЖНО**: Передаем windowsDataPath напрямую, так как файлы лежат там
-	sampleHandler := handlers.NewSampleHandler(windowsDataPath, labData)
+	sampleHandler := handlers.NewSampleHandler(containerDataPath, labData)
 	projectHandler := handlers.NewProjectHandler(labData)
 
 	// Статические файлы (CSS, JS)
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	// **ИСПРАВЛЕНО**: Сервировка файлов из корневой папки с данными
-	// Так как в handlers мы теперь используем FilePath: "/data/" + fileName
-	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir(windowsDataPath))))
+	// Сервировка файлов из папки с данными
+	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir(containerDataPath))))
 
 	// API маршруты
 	r.HandleFunc("/api/samples", sampleHandler.GetAllSamples).Methods("GET")
@@ -51,49 +62,45 @@ func main() {
 	r.HandleFunc("/", indexHandler)
 	r.HandleFunc("/samples", samplesPageHandler)
 
-	// **УЛУЧШЕНО**: Дебаг-эндпоинт для проверки файлов
+	// **УЛУЧШЕНО**: Дебаг-эндпоинт с проверкой монтирования
 	r.HandleFunc("/debug/files", func(w http.ResponseWriter, r *http.Request) {
-		// Проверяем наличие lab_journal.xlsx
-		labJournalExists := true
-		if _, err := os.Stat(labJournalPath); os.IsNotExist(err) {
-			labJournalExists = false
-		}
+		// Проверяем содержимое корневой файловой системы
+		rootFiles, _ := os.ReadDir("/")
 
-		// Читаем файлы из папки с данными
-		files, err := os.ReadDir(windowsDataPath)
+		// Проверяем содержимое /data
+		dataFiles, _ := os.ReadDir("/data")
+
+		// Проверяем содержимое /data/windows
+		var windowsFiles []os.DirEntry
+		var windowsFilesList []string
+		windowsFiles, err = os.ReadDir(containerDataPath)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var fileList []string
-		var graphFiles []string
-
-		for _, file := range files {
-			if !file.IsDir() {
-				fileList = append(fileList, file.Name())
-				// Проверяем расширения графических файлов
-				ext := filepath.Ext(file.Name())
-				supportedExts := map[string]bool{
-					".png": true, ".jpg": true, ".jpeg": true,
-					".gif": true, ".svg": true, ".pdf": true,
-				}
-				if supportedExts[ext] {
-					graphFiles = append(graphFiles, file.Name())
-				}
+			windowsFilesList = []string{err.Error()}
+		} else {
+			for _, file := range windowsFiles {
+				windowsFilesList = append(windowsFilesList, file.Name())
 			}
 		}
 
+		// Проверяем наличие lab_journal.xlsx
+		labJournalExists := false
+		if _, err := os.Stat(labJournalPath); err == nil {
+			labJournalExists = true
+		}
+
+		response := map[string]interface{}{
+			"container_data_path":    containerDataPath,
+			"lab_journal_path":       labJournalPath,
+			"lab_journal_exists":     labJournalExists,
+			"root_directory":         listDirEntries(rootFiles),
+			"data_directory":         listDirEntries(dataFiles),
+			"windows_data_directory": windowsFilesList,
+			"note":                   "Files are served from /data/ filename",
+			"url_prefix":             "/data/",
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data_path":          windowsDataPath,
-			"lab_journal_path":   labJournalPath,
-			"lab_journal_exists": labJournalExists,
-			"all_files":          fileList,
-			"graph_files":        graphFiles,
-			"url_prefix":         "/data/",
-			"note":               "Files are served from /data/ filename",
-		})
+		json.NewEncoder(w).Encode(response)
 	})
 
 	r.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
@@ -104,9 +111,17 @@ func main() {
 	go startPeriodicUpdate(sampleHandler, 5*time.Minute)
 
 	log.Println("Server starting on :8080")
-	log.Printf("Data path: %s", windowsDataPath)
-	log.Printf("Lab journal path: %s", labJournalPath)
+	log.Printf("Container data path: %s", containerDataPath)
 	log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+// Вспомогательная функция для форматирования списка файлов
+func listDirEntries(entries []os.DirEntry) []string {
+	var names []string
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
