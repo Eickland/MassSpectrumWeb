@@ -18,7 +18,7 @@ func main() {
 	// Инициализация роутера
 	r := mux.NewRouter()
 
-	windowsDataPath := "/data/windows" // В контейнере будет монтироваться сюда
+	windowsDataPath := "/data/windows" // В контейнере монтируется сюда
 	labJournalPath := filepath.Join(windowsDataPath, "lab_journal.xlsx")
 
 	// Загружаем данные из лаб журнала
@@ -29,16 +29,16 @@ func main() {
 	}
 
 	// Создаем обработчики
+	// **ВАЖНО**: Передаем windowsDataPath напрямую, так как файлы лежат там
 	sampleHandler := handlers.NewSampleHandler(windowsDataPath, labData)
 	projectHandler := handlers.NewProjectHandler(labData)
 
 	// Статические файлы (CSS, JS)
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 
-	// **ВАЖНО: Сервировка файлов из папки с данными**
-	// Создаем обработчик для файлов из папки graphs
-	graphsPath := filepath.Join(windowsDataPath, "graphs")
-	r.PathPrefix("/data/graphs/").Handler(http.StripPrefix("/data/graphs/", http.FileServer(http.Dir(graphsPath))))
+	// **ИСПРАВЛЕНО**: Сервировка файлов из корневой папки с данными
+	// Так как в handlers мы теперь используем FilePath: "/data/" + fileName
+	r.PathPrefix("/data/").Handler(http.StripPrefix("/data/", http.FileServer(http.Dir(windowsDataPath))))
 
 	// API маршруты
 	r.HandleFunc("/api/samples", sampleHandler.GetAllSamples).Methods("GET")
@@ -51,27 +51,48 @@ func main() {
 	r.HandleFunc("/", indexHandler)
 	r.HandleFunc("/samples", samplesPageHandler)
 
-	// Добавьте после других маршрутов
+	// **УЛУЧШЕНО**: Дебаг-эндпоинт для проверки файлов
 	r.HandleFunc("/debug/files", func(w http.ResponseWriter, r *http.Request) {
-		graphsPath := filepath.Join(windowsDataPath, "graphs")
-		files, err := os.ReadDir(graphsPath)
+		// Проверяем наличие lab_journal.xlsx
+		labJournalExists := true
+		if _, err := os.Stat(labJournalPath); os.IsNotExist(err) {
+			labJournalExists = false
+		}
+
+		// Читаем файлы из папки с данными
+		files, err := os.ReadDir(windowsDataPath)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		var fileList []string
+		var graphFiles []string
+
 		for _, file := range files {
 			if !file.IsDir() {
 				fileList = append(fileList, file.Name())
+				// Проверяем расширения графических файлов
+				ext := filepath.Ext(file.Name())
+				supportedExts := map[string]bool{
+					".png": true, ".jpg": true, ".jpeg": true,
+					".gif": true, ".svg": true, ".pdf": true,
+				}
+				if supportedExts[ext] {
+					graphFiles = append(graphFiles, file.Name())
+				}
 			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"graph_path": graphsPath,
-			"files":      fileList,
-			"url_prefix": "/data/graphs/",
+			"data_path":          windowsDataPath,
+			"lab_journal_path":   labJournalPath,
+			"lab_journal_exists": labJournalExists,
+			"all_files":          fileList,
+			"graph_files":        graphFiles,
+			"url_prefix":         "/data/",
+			"note":               "Files are served from /data/ filename",
 		})
 	})
 
@@ -83,6 +104,8 @@ func main() {
 	go startPeriodicUpdate(sampleHandler, 5*time.Minute)
 
 	log.Println("Server starting on :8080")
+	log.Printf("Data path: %s", windowsDataPath)
+	log.Printf("Lab journal path: %s", labJournalPath)
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
