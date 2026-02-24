@@ -94,25 +94,24 @@ function createSampleCard(sample) {
     card.dataset.project = sample.project;
     card.dataset.name = sample.name;
 
-    // Get main graph or first graph
-    const mainGraph = sample.graphs.find(g => g.isMain) || sample.graphs[0];
+    const mainGraph = sample.graphs.find(g => g.is_main) || sample.graphs[0];
 
     card.innerHTML = `
-        <img src="/data/${mainGraph ? mainGraph.filePath : ''}" 
-             alt="${sample.name}" 
-             class="sample-image"
-             onerror="this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22300%22%20height%3D%22200%22%20viewBox%3D%220%200%20300%20200%22%3E%3Crect%20width%3D%22300%22%20height%3D%22200%22%20fill%3D%22%23f0f0f0%22%2F%3E%3Ctext%20x%3D%22150%22%20y%3D%22100%22%20font-family%3D%22Arial%22%20font-size%3D%2214%22%20fill%3D%22%23999%22%20text-anchor%3D%22middle%22%3ENo%20Image%3C%2Ftext%3E%3C%2Fsvg%3E'">
+        <img src="${mainGraph ? mainGraph.file_path : ''}" 
+            alt="${sample.name}" 
+            class="sample-image"
+            onerror="this.src='data:image/svg+xml,...'">
         <div class="sample-info">
             <div class="sample-name">${sample.name}</div>
             <div class="sample-project">${sample.project}</div>
             ${sample.description ? `<div class="sample-description">${sample.description}</div>` : ''}
             
-            ${sample.hasMultiple ? `
+            ${sample.has_multiple ? `
                 <div class="sample-graphs">
                     ${sample.graphs.map((graph, index) => `
-                        <img src="/data/${graph.filePath}" 
-                             class="graph-thumbnail ${index === 0 ? 'active' : ''}"
-                             onclick="event.stopPropagation(); showGraph('${sample.name}', ${index})">
+                        <img src="${graph.file_path}" 
+                            class="graph-thumbnail ${index === 0 ? 'active' : ''}"
+                            onclick="event.stopPropagation(); showGraph('${sample.name}', ${index})">
                     `).join('')}
                 </div>
             ` : ''}
