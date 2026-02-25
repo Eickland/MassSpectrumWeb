@@ -14,6 +14,18 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// Простая проверка API-ключа
+func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		apiKey := r.Header.Get("X-API-Key")
+		if apiKey != "3fjeiu289fh8238h84fh781290" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
 func main() {
 	r := mux.NewRouter()
 
@@ -54,6 +66,8 @@ func main() {
 	r.HandleFunc("/api/projects", projectHandler.GetAllProjects).Methods("GET")
 	r.HandleFunc("/api/projects/{name}/samples", projectHandler.GetProjectSamples).Methods("GET")
 	r.HandleFunc("/api/import", sampleHandler.ImportFromFolder).Methods("POST")
+
+	r.HandleFunc("/api/upload", authMiddleware(sampleHandler.UploadFile)).Methods("POST")
 
 	// HTML страницы
 	r.HandleFunc("/", indexHandler)

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +20,38 @@ type SampleHandler struct {
 	dataPath   string
 	labJournal *models.LabJournal
 	samples    map[string]models.Sample
+}
+
+func (h *SampleHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
+	// Лимит 32 МБ
+	r.ParseMultipartForm(32 << 20)
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Error retrieving file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Путь сохранения (используем h.dataPath из /data в контейнере)
+	dstPath := filepath.Join(h.dataPath, handler.Filename)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		http.Error(w, "Error saving file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Обновляем список образцов в памяти сервера
+	h.RefreshSamples()
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "file": handler.Filename})
 }
 
 func NewSampleHandler(dataPath string, labJournal *models.LabJournal) *SampleHandler {
