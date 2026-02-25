@@ -2,13 +2,13 @@ version: '3.8'
 services:
   mass-spec-server:
     build: .
-    container_name: mass-spec-server
+    container_name: MassSpectrumWeb
     ports:
       - "8080:8080"
     volumes:
-      # Все содержимое папки ./data на Windows попадет в /data внутри Linux
-      - ./data:/data 
+      - ./data:/data  # Вот здесь магия сохранения данных
     environment:
       - DATA_PATH=/data
+      - API_KEY=3fjeiu289fh8238h84fh781290
       - TZ=Europe/Moscow
     restart: unless-stopped
