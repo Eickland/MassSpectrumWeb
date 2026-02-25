@@ -205,3 +205,31 @@ header {
     color: white;
     font-size: 18px;
 }
+
+.download-btn {
+    position: absolute;
+    top: 20px;
+    right: 90px; /* Сдвигаем левее кнопки закрытия */
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.3s;
+    z-index: 1001;
+}
+
+.download-btn:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+}
+
+.download-btn svg {
+    width: 18px;
+    height: 18px;
+}

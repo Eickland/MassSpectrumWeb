@@ -1,6 +1,10 @@
 // API URL
 const API_BASE = '/api';
 
+// Закрытие по кнопке Esc
+document.addEventListener('keydown', (e) => {
+    if (e.key === "Escape") closeModal();
+});
 // Load projects on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadProjects();
@@ -194,12 +198,16 @@ function openModal(src, name) {
     const modal = document.getElementById('imageModal');
     const modalImg = document.getElementById('fullImage');
     const captionText = document.getElementById('caption');
+    const downloadBtn = document.getElementById('downloadBtn');
 
     modal.style.display = "block";
     modalImg.src = src;
     captionText.innerHTML = name;
-    
-    // Блокируем прокрутку страницы под окном
+
+    // Настраиваем кнопку скачивания
+    downloadBtn.href = src; // Путь к файлу (/data/...)
+    downloadBtn.download = name; // Имя, под которым файл сохранится
+
     document.body.style.overflow = 'hidden';
 }
 
@@ -209,7 +217,3 @@ function closeModal() {
     document.body.style.overflow = 'auto';
 }
 
-// Закрытие по кнопке Esc
-document.addEventListener('keydown', (e) => {
-    if (e.key === "Escape") closeModal();
-});
