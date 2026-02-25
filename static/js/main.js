@@ -40,6 +40,17 @@ async function loadProjects() {
         
         if (projectsList) {
             projectsList.innerHTML = '';
+            
+            // Кнопка "Все проекты"
+            const allEl = document.createElement('div');
+            allEl.className = 'project-item active';
+            allEl.textContent = 'All Projects';
+            allEl.addEventListener('click', () => {
+                document.querySelectorAll('.sample-card').forEach(c => c.style.display = 'flex');
+                document.querySelectorAll('.project-item').forEach(i => i.classList.remove('active'));
+                allEl.classList.add('active');
+            });
+            projectsList.appendChild(allEl);
             projects.forEach(project => {
                 const projectEl = document.createElement('div');
                 projectEl.className = 'project-item';
@@ -96,18 +107,23 @@ function createSampleCard(sample) {
     const card = document.createElement('div');
     card.className = 'sample-card';
     
-    // Группируем файлы по типам для удобства отображения
+    // ВАЖНО: Добавляем атрибут для фильтрации
+    card.dataset.project = sample.project;
+    card.dataset.name = sample.name;
+
     const images = sample.graphs.filter(g => ['png', 'jpg', 'jpeg'].includes(g.file_type));
     const dataFiles = sample.graphs.filter(g => ['xlsx', 'csv', 'pdf'].includes(g.file_type));
-    
     const mainImg = images.find(g => g.is_main) || images[0];
-    // Передаем ID образца и индекс в функцию
+
+    // JSON.stringify для модалки
+    const sampleData = JSON.stringify(sample).replace(/"/g, '&quot;');
 
     card.innerHTML = `
         <div class="image-container">
             <img src="${mainImg ? mainImg.file_path : ''}" 
                  class="sample-image" 
-                 onclick="openModal('${mainImg?.file_path}', '${sample.name}')">
+                 style="cursor: pointer;"
+                 onclick="openDetailedModal(${sampleData})"> 
             ${images.length > 1 ? `<span class="badge">🖼️ ${images.length}</span>` : ''}
         </div>
         <div class="sample-info">
@@ -115,36 +131,39 @@ function createSampleCard(sample) {
                 <span class="sample-name">${sample.name}</span>
                 <span class="sample-project-tag">${sample.project}</span>
             </div>
-            
             <div class="data-files-list">
                 ${dataFiles.map(file => `
-                    <a href="${file.file_path}" class="file-link" download>
+                    <a href="${file.file_path}" class="file-link" download onclick="event.stopPropagation()">
                         ${file.file_type === 'xlsx' ? '📊' : '📄'} ${file.name}
                     </a>
                 `).join('')}
             </div>
         </div>
     `;
-    card.querySelector('.sample-image').onclick = () => {
-        openDetailedModal(sample); 
-    };
     return card;
 }
 
 // Filter samples by project
-function filterByProject(project) {
+function filterByProject(projectName) {
     const cards = document.querySelectorAll('.sample-card');
     const projectItems = document.querySelectorAll('.project-item');
     
+    // Подсвечиваем активный проект в сайдбаре
     projectItems.forEach(item => {
-        item.classList.toggle('active', item.dataset.project === project);
+        if (item.dataset.project === projectName) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
     });
 
+    // Скрываем или показываем карточки
     cards.forEach(card => {
-        if (project === 'Uncategorized') {
-            card.style.display = card.dataset.project === 'Uncategorized' ? 'block' : 'none';
+        // Если проект совпадает или мы нажали на уже активный проект (для сброса)
+        if (card.dataset.project === projectName) {
+            card.style.display = 'flex'; // или 'block', смотря что в CSS
         } else {
-            card.style.display = card.dataset.project === project ? 'block' : 'none';
+            card.style.display = 'none';
         }
     });
 }
