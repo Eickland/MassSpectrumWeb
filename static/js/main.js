@@ -102,9 +102,7 @@ function createSampleCard(sample) {
     
     const mainImg = images.find(g => g.is_main) || images[0];
     // Передаем ID образца и индекс в функцию
-    card.querySelector('.sample-image').onclick = () => {
-        openDetailedModal(sample); 
-    };
+
     card.innerHTML = `
         <div class="image-container">
             <img src="${mainImg ? mainImg.file_path : ''}" 
@@ -127,6 +125,9 @@ function createSampleCard(sample) {
             </div>
         </div>
     `;
+    card.querySelector('.sample-image').onclick = () => {
+        openDetailedModal(sample); 
+    };
     return card;
 }
 
