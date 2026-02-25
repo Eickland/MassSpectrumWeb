@@ -97,7 +97,7 @@ header {
 .sample-image {
     width: 100%;
     height: 200px;
-    object-fit: cover;
+    object-fit: contain;
     background: #f0f0f0;
 }
 
@@ -160,4 +160,48 @@ header {
 
 #projectFilter {
     width: 200px;
+}
+
+/* Стили модального окна */
+.modal {
+    display: none; 
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.9);
+    cursor: zoom-out;
+}
+
+.modal-content {
+    margin: auto;
+    display: block;
+    max-width: 95%;
+    max-height: 95vh; /* Почти вся высота экрана */
+    object-fit: contain; /* Картинка НЕ обрезается */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#caption {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-size: 18px;
 }

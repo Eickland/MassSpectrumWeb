@@ -100,6 +100,8 @@ function createSampleCard(sample) {
         <img src="${mainGraph ? mainGraph.file_path : ''}" 
             alt="${sample.name}" 
             class="sample-image"
+            style="cursor: pointer;" 
+            onclick="event.stopPropagation(); openModal('${mainGraph ? mainGraph.file_path : ''}', '${sample.name}')"
             onerror="this.src='data:image/svg+xml,...'">
         <div class="sample-info">
             <div class="sample-name">${sample.name}</div>
@@ -187,3 +189,27 @@ function showGraph(sampleName, graphIndex) {
     console.log('Show graph', graphIndex, 'for sample', sampleName);
     // В будущем здесь будет логика для показа большого графика
 }
+
+function openModal(src, name) {
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('fullImage');
+    const captionText = document.getElementById('caption');
+
+    modal.style.display = "block";
+    modalImg.src = src;
+    captionText.innerHTML = name;
+    
+    // Блокируем прокрутку страницы под окном
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+    document.getElementById('imageModal').style.display = "none";
+    // Возвращаем прокрутку
+    document.body.style.overflow = 'auto';
+}
+
+// Закрытие по кнопке Esc
+document.addEventListener('keydown', (e) => {
+    if (e.key === "Escape") closeModal();
+});
