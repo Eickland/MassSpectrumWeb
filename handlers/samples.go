@@ -64,17 +64,28 @@ func NewSampleHandler(dataPath string, labJournal *models.LabJournal) *SampleHan
 
 func (h *SampleHandler) RefreshSamples() error {
 	newSamples := make(map[string]models.Sample)
+
+	// 1. ОПРЕДЕЛЯЕМ ЧЕРНЫЙ СПИСОК
+	ignoredFiles := map[string]bool{
+		"lab_journal.xlsx": true,
+		"Thumbs.db":        true, // Системный файл Windows
+		".DS_Store":        true, // Системный файл Mac
+		"desktop.ini":      true,
+	}
+
 	files, err := os.ReadDir(h.dataPath)
 	if err != nil {
 		return err
 	}
 
 	for _, file := range files {
-		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+		fileName := file.Name()
+
+		// 2. ПРОВЕРКА: Если файл в черном списке — пропускаем его
+		if ignoredFiles[fileName] || strings.HasPrefix(fileName, "~$") {
+			// strings.HasPrefix(fileName, "~$") отсекает временные файлы открытого Excel
 			continue
 		}
-
-		fileName := file.Name()
 		ext := strings.ToLower(filepath.Ext(fileName))
 		nameWithoutExt := strings.TrimSuffix(fileName, ext)
 
