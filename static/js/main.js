@@ -198,25 +198,13 @@ function openModal(src, name) {
     const captionText = document.getElementById('caption');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    // Проверяем существование всех элементов
-    if (!modal) {
-        console.error('Modal element not found');
-        return;
-    }
-    
-    if (!modalImg) {
-        console.error('Modal image element not found');
-        return;
-    }
-
     modal.style.display = "block";
-    
-    if (modalImg) modalImg.src = src;
-    if (captionText) captionText.innerHTML = name;
-    if (downloadBtn) {
-        downloadBtn.href = src;
-        downloadBtn.download = name || 'image';
-    }
+    modalImg.src = src;
+    captionText.innerHTML = name;
+
+    // Настраиваем кнопку скачивания
+    downloadBtn.href = src; // Путь к файлу (/data/...)
+    downloadBtn.download = name; // Имя, под которым файл сохранится
 
     document.body.style.overflow = 'hidden';
 }
