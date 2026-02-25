@@ -82,11 +82,12 @@ header {
 }
 
 .sample-card {
-    background: white;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
+    background: white;
 }
 
 .sample-card:hover {
@@ -102,7 +103,7 @@ header {
 }
 
 .sample-info {
-    padding: 15px;
+    padding: 12px;
 }
 
 .sample-name {
@@ -125,6 +126,23 @@ header {
 
 .sample-graphs {
     margin-top: 10px;
+}
+
+.image-container {
+    position: relative;
+    height: 200px;
+    background: #f8f9fa;
+}
+
+.badge {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
 }
 
 .graph-thumbnail {
@@ -237,4 +255,73 @@ header {
 .download-btn svg {
     width: 18px;
     height: 18px;
+}
+
+.data-files-list {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.file-link {
+    display: inline-block;
+    padding: 4px 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    font-size: 12px;
+    text-decoration: none;
+    color: #495057;
+    transition: 0.2s;
+}
+
+.file-link:hover {
+    background: #dee2e6;
+    color: #000;
+}
+
+/* Галерея миниатюр внутри модального окна */
+.thumbnails-gallery {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    position: absolute;
+    bottom: 60px; /* Над подписью */
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 10px;
+    max-width: 90%;
+    overflow-x: auto;
+}
+
+.thumb-item {
+    width: 60px;
+    height: 45px;
+    object-fit: cover;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+    opacity: 0.6;
+}
+
+.thumb-item:hover {
+    opacity: 1;
+}
+
+.thumb-item.active {
+    border-color: #007bff;
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.modal-main-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }

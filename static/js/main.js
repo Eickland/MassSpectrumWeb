@@ -95,64 +95,38 @@ function displaySamples(samples) {
 function createSampleCard(sample) {
     const card = document.createElement('div');
     card.className = 'sample-card';
-    card.dataset.project = sample.project;
-    card.dataset.name = sample.name;
-
-    const mainGraph = sample.graphs.find(g => g.is_main) || sample.graphs[0];
-
-    // Создаем изображение
-    const img = document.createElement('img');
-    img.src = mainGraph ? mainGraph.file_path : '';
-    img.alt = sample.name;
-    img.className = 'sample-image';
-    img.style.cursor = 'pointer';
     
-    // Добавляем обработчик события через JavaScript
-    img.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openModal(mainGraph ? mainGraph.file_path : '', sample.name);
-    });
+    // Группируем файлы по типам для удобства отображения
+    const images = sample.graphs.filter(g => ['png', 'jpg', 'jpeg'].includes(g.file_type));
+    const dataFiles = sample.graphs.filter(g => ['xlsx', 'csv', 'pdf'].includes(g.file_type));
     
-    img.onerror = function() {
-        this.src = 'data:image/svg+xml,...';
+    const mainImg = images.find(g => g.is_main) || images[0];
+    // Передаем ID образца и индекс в функцию
+    card.querySelector('.sample-image').onclick = () => {
+        openDetailedModal(sample); 
     };
-
-    // Собираем карточку
-    card.appendChild(img);
-    
-    const infoDiv = document.createElement('div');
-    infoDiv.className = 'sample-info';
-    infoDiv.innerHTML = `
-        <div class="sample-name">${sample.name}</div>
-        <div class="sample-project">${sample.project}</div>
-        ${sample.description ? `<div class="sample-description">${sample.description}</div>` : ''}
+    card.innerHTML = `
+        <div class="image-container">
+            <img src="${mainImg ? mainImg.file_path : ''}" 
+                 class="sample-image" 
+                 onclick="openModal('${mainImg?.file_path}', '${sample.name}')">
+            ${images.length > 1 ? `<span class="badge">🖼️ ${images.length}</span>` : ''}
+        </div>
+        <div class="sample-info">
+            <div class="sample-header">
+                <span class="sample-name">${sample.name}</span>
+                <span class="sample-project-tag">${sample.project}</span>
+            </div>
+            
+            <div class="data-files-list">
+                ${dataFiles.map(file => `
+                    <a href="${file.file_path}" class="file-link" download>
+                        ${file.file_type === 'xlsx' ? '📊' : '📄'} ${file.name}
+                    </a>
+                `).join('')}
+            </div>
+        </div>
     `;
-    
-    card.appendChild(infoDiv);
-    
-    // Добавляем миниатюры если есть
-    if (sample.has_multiple && sample.graphs.length > 0) {
-        const graphsDiv = document.createElement('div');
-        graphsDiv.className = 'sample-graphs';
-        
-        sample.graphs.forEach((graph, index) => {
-            const thumbImg = document.createElement('img');
-            thumbImg.src = graph.file_path;
-            thumbImg.className = `graph-thumbnail ${index === 0 ? 'active' : ''}`;
-            thumbImg.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showGraph(sample.name, index);
-            });
-            graphsDiv.appendChild(thumbImg);
-        });
-        
-        infoDiv.appendChild(graphsDiv);
-    }
-
-    card.addEventListener('click', () => {
-        console.log('Sample clicked:', sample.name);
-    });
-
     return card;
 }
 
@@ -253,5 +227,57 @@ function closeModal() {
         modal.style.display = "none";
     }
     document.body.style.overflow = 'auto';
+}
+
+let currentSampleData = null;
+
+function openDetailedModal(sample) {
+    currentSampleData = sample;
+    const images = sample.graphs.filter(g => ['png', 'jpg', 'jpeg'].includes(g.file_type));
+    
+    if (images.length === 0) return;
+
+    // Показываем первый график
+    switchModalImage(images[0], 0);
+    
+    // Генерируем миниатюры
+    const thumbContainer = document.getElementById('thumbnailsContainer');
+    thumbContainer.innerHTML = '';
+    
+    if (images.length > 1) {
+        images.forEach((img, index) => {
+            const thumb = document.createElement('img');
+            thumb.src = img.file_path;
+            thumb.className = 'thumb-item' + (index === 0 ? ' active' : '');
+            thumb.onclick = (e) => {
+                e.stopPropagation();
+                switchModalImage(img, index);
+            };
+            thumbContainer.appendChild(thumb);
+        });
+        thumbContainer.style.display = 'flex';
+    } else {
+        thumbContainer.style.display = 'none';
+    }
+
+    document.getElementById('imageModal').style.display = "block";
+    document.body.style.overflow = 'hidden';
+}
+
+function switchModalImage(graph, index) {
+    const modalImg = document.getElementById('fullImage');
+    const captionText = document.getElementById('caption');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    modalImg.src = graph.file_path;
+    captionText.innerHTML = `${currentSampleData.name} — ${graph.name}`;
+    
+    downloadBtn.href = graph.file_path;
+    downloadBtn.download = `${currentSampleData.name}__${graph.name}.${graph.file_type}`;
+
+    // Подсвечиваем активную миниатюру
+    document.querySelectorAll('.thumb-item').forEach((t, i) => {
+        t.classList.toggle('active', i === index);
+    });
 }
 

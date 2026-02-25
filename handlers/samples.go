@@ -3,13 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"mass-spec-server/models"
 
@@ -66,80 +64,69 @@ func NewSampleHandler(dataPath string, labJournal *models.LabJournal) *SampleHan
 
 func (h *SampleHandler) RefreshSamples() error {
 	newSamples := make(map[string]models.Sample)
-
-	// Используем h.dataPath (который теперь указывает прямо на /data)
-	graphsPath := h.dataPath
-
-	files, err := os.ReadDir(graphsPath)
+	files, err := os.ReadDir(h.dataPath)
 	if err != nil {
 		return err
 	}
 
-	// Белый список расширений для графиков
-	supportedExts := map[string]bool{
-		".png":  true,
-		".jpg":  true,
-		".jpeg": true,
-		".gif":  true,
-		".svg":  true,
-		".pdf":  true,
-	}
-
 	for _, file := range files {
-		// Игнорируем папки и скрытые файлы (начинающиеся с точки)
 		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
 
 		fileName := file.Name()
 		ext := strings.ToLower(filepath.Ext(fileName))
+		nameWithoutExt := strings.TrimSuffix(fileName, ext)
 
-		// Пропускаем, если расширение не в белом списке (автоматически проигнорирует .xlsx)
+		// ЛОГИКА ПАРСИНГА: Разделяем по "__"
+		parts := strings.SplitN(nameWithoutExt, "__", 2)
+		sampleID := parts[0] // Это будет ID образца (например, ADOM_001)
+		fileLabel := "Main"
+		if len(parts) > 1 {
+			fileLabel = parts[1] // Это описание (например, stats, spectrum_2)
+		}
+
+		// Поддерживаемые расширения (добавляем таблицы и PDF)
+		supportedExts := map[string]bool{
+			".png": true, ".jpg": true, ".jpeg": true,
+			".xlsx": true, ".csv": true, ".pdf": true,
+		}
 		if !supportedExts[ext] {
 			continue
 		}
 
-		nameWithoutExt := strings.TrimSuffix(fileName, filepath.Ext(fileName))
-
-		// Ищем данные в журнале
-		sampleInfo, exists := h.labJournal.Samples[nameWithoutExt]
-		project := "Uncategorized"
-		description := ""
-
+		// Ищем метаданные в журнале по ID образца
+		sampleInfo, exists := h.labJournal.Samples[sampleID]
+		project, description := "Uncategorized", ""
 		if exists {
 			project = sampleInfo.Project
 			description = sampleInfo.Description
 		}
 
-		// Подготавливаем объект графика
-		newGraph := models.Graph{
-			Name:     fileName,
-			FilePath: "/data/" + fileName, // URL для фронтенда
+		// Создаем объект файла
+		newFile := models.Graph{
+			Name:     fileLabel, // Теперь здесь красивое имя (stats, spectrum)
+			FilePath: "/data/" + fileName,
 			FileType: strings.TrimPrefix(ext, "."),
+			IsMain:   !strings.Contains(fileName, "__"), // Главным считаем файл без суффикса
 		}
 
-		if existingSample, ok := newSamples[nameWithoutExt]; ok {
-			// Если образец уже есть, добавляем график в список
-			newGraph.IsMain = false
-			existingSample.Graphs = append(existingSample.Graphs, newGraph)
-			existingSample.HasMultiple = true
-			newSamples[nameWithoutExt] = existingSample
+		// Группировка
+		if s, ok := newSamples[sampleID]; ok {
+			s.Graphs = append(s.Graphs, newFile)
+			s.HasMultiple = true
+			newSamples[sampleID] = s
 		} else {
-			// Создаем новый образец
-			newGraph.IsMain = true
-			newSamples[nameWithoutExt] = models.Sample{
-				Name:        nameWithoutExt,
+			newSamples[sampleID] = models.Sample{
+				Name:        sampleID,
 				Project:     project,
 				Description: description,
-				CreatedAt:   time.Now(),
-				Graphs:      []models.Graph{newGraph},
+				Graphs:      []models.Graph{newFile},
 				HasMultiple: false,
 			}
 		}
 	}
-
 	h.samples = newSamples
-	log.Printf("Successfully refreshed %d samples from %s", len(h.samples), graphsPath)
 	return nil
 }
 
