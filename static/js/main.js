@@ -100,32 +100,56 @@ function createSampleCard(sample) {
 
     const mainGraph = sample.graphs.find(g => g.is_main) || sample.graphs[0];
 
-    card.innerHTML = `
-        <img src="${mainGraph ? mainGraph.file_path : ''}" 
-            alt="${sample.name}" 
-            class="sample-image"
-            style="cursor: pointer;" 
-            onclick="event.stopPropagation(); openModal('${mainGraph ? mainGraph.file_path : ''}', '${sample.name}')"
-            onerror="this.src='data:image/svg+xml,...'">
-        <div class="sample-info">
-            <div class="sample-name">${sample.name}</div>
-            <div class="sample-project">${sample.project}</div>
-            ${sample.description ? `<div class="sample-description">${sample.description}</div>` : ''}
-            
-            ${sample.has_multiple ? `
-                <div class="sample-graphs">
-                    ${sample.graphs.map((graph, index) => `
-                        <img src="${graph.file_path}" 
-                            class="graph-thumbnail ${index === 0 ? 'active' : ''}"
-                            onclick="event.stopPropagation(); showGraph('${sample.name}', ${index})">
-                    `).join('')}
-                </div>
-            ` : ''}
-        </div>
+    // Создаем изображение
+    const img = document.createElement('img');
+    img.src = mainGraph ? mainGraph.file_path : '';
+    img.alt = sample.name;
+    img.className = 'sample-image';
+    img.style.cursor = 'pointer';
+    
+    // Добавляем обработчик события через JavaScript
+    img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openModal(mainGraph ? mainGraph.file_path : '', sample.name);
+    });
+    
+    img.onerror = function() {
+        this.src = 'data:image/svg+xml,...';
+    };
+
+    // Собираем карточку
+    card.appendChild(img);
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'sample-info';
+    infoDiv.innerHTML = `
+        <div class="sample-name">${sample.name}</div>
+        <div class="sample-project">${sample.project}</div>
+        ${sample.description ? `<div class="sample-description">${sample.description}</div>` : ''}
     `;
+    
+    card.appendChild(infoDiv);
+    
+    // Добавляем миниатюры если есть
+    if (sample.has_multiple && sample.graphs.length > 0) {
+        const graphsDiv = document.createElement('div');
+        graphsDiv.className = 'sample-graphs';
+        
+        sample.graphs.forEach((graph, index) => {
+            const thumbImg = document.createElement('img');
+            thumbImg.src = graph.file_path;
+            thumbImg.className = `graph-thumbnail ${index === 0 ? 'active' : ''}`;
+            thumbImg.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showGraph(sample.name, index);
+            });
+            graphsDiv.appendChild(thumbImg);
+        });
+        
+        infoDiv.appendChild(graphsDiv);
+    }
 
     card.addEventListener('click', () => {
-        // В будущем здесь можно открыть детальную информацию
         console.log('Sample clicked:', sample.name);
     });
 
@@ -200,20 +224,34 @@ function openModal(src, name) {
     const captionText = document.getElementById('caption');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    modal.style.display = "block";
-    modalImg.src = src;
-    captionText.innerHTML = name;
+    // Проверяем существование всех элементов
+    if (!modal) {
+        console.error('Modal element not found');
+        return;
+    }
+    
+    if (!modalImg) {
+        console.error('Modal image element not found');
+        return;
+    }
 
-    // Настраиваем кнопку скачивания
-    downloadBtn.href = src; // Путь к файлу (/data/...)
-    downloadBtn.download = name; // Имя, под которым файл сохранится
+    modal.style.display = "block";
+    
+    if (modalImg) modalImg.src = src;
+    if (captionText) captionText.innerHTML = name;
+    if (downloadBtn) {
+        downloadBtn.href = src;
+        downloadBtn.download = name || 'image';
+    }
 
     document.body.style.overflow = 'hidden';
 }
 
 function closeModal() {
-    document.getElementById('imageModal').style.display = "none";
-    // Возвращаем прокрутку
+    const modal = document.getElementById('imageModal');
+    if (modal) {
+        modal.style.display = "none";
+    }
     document.body.style.overflow = 'auto';
 }
 
