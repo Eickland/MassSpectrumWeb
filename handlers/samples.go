@@ -119,7 +119,7 @@ func (h *SampleHandler) RefreshSamples() error {
 			Name:     fileLabel, // Теперь здесь красивое имя (stats, spectrum)
 			FilePath: "/data/" + fileName,
 			FileType: strings.TrimPrefix(ext, "."),
-			IsMain:   strings.Contains(sampleID, "spectrum"), // Главным считаем файл вида spectrum
+			IsMain:   strings.Contains(fileLabel, "spectrum"), // Главным считаем файл вида spectrum
 		}
 
 		// Группировка
