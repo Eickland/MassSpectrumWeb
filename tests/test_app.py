@@ -186,6 +186,34 @@ def test_journal_roundtrip_and_old_format(client):
     assert client.get("/api/samples/ADOM_B_2025_000001_vk").json()["project"] == "Диплом"
 
 
+def test_project_masslists_zip(client):
+    S = {f"ADOM-ML-{i}_000001": fake_formulas(200 + i) for i in range(2)}
+    r = upload_zip(client, S, project="Масс-листы")
+    assert r.status_code == 200, r.text
+    projects = {p["name"]: p["id"] for p in client.get("/api/projects").json()}
+    pid = projects["Масс-листы"]
+    r = client.get(f"/api/projects/{pid}/masslists.zip")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+        names = set(z.namelist())
+        assert {"all_mass_lists.csv", "README.txt", "ADOM-ML-0_000001.csv", "ADOM-ML-1_000001.csv"} <= names
+        body = z.read("ADOM-ML-0_000001.csv").decode("utf-8-sig")
+        head, *rows = body.strip().splitlines()
+        assert head.split(",") == ["mz_cal", "intensity", "rel_intensity", "formula", "elemental_class",
+                                   "C", "H", "O", "N", "S", "DBE", "AI_mod", "err_ppm"]
+        assert len(rows) == 300
+        mz = [float(x.split(",")[0]) for x in rows]
+        assert mz == sorted(mz)
+        combined = z.read("all_mass_lists.csv").decode("utf-8-sig").strip().splitlines()
+        assert len(combined) == 601 and combined[0].startswith("sample,")
+    # проект без спектров — понятная ошибка, а не пустой архив
+    pid2 = client.post("/api/projects", json={"name": "Пустой проект"}).json()["id"]
+    assert client.get(f"/api/projects/{pid2}/masslists.zip").status_code == 404
+    page = client.get(f"/projects/{pid}")
+    assert page.status_code == 200 and "Масс-листы проекта (ZIP)" in page.text
+    assert f"/api/projects/{pid}/masslists.zip" in page.text
+
+
 def test_pages_render(client):
     for u in ["/samples", "/samples/PEAT-7", "/samples/ADOM_B_2025_000001_vk", "/projects", "/projects/1",
               "/analysis", "/analysis?project_id=1", "/journal", "/upload"]:

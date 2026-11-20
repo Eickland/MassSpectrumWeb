@@ -2,12 +2,15 @@
 import base64
 import logging
 import io
+import re
 import secrets
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -360,6 +363,57 @@ def api_delete_project(pid: int, db: Session = Depends(get_db)):
     db.delete(p)
     db.commit()
     return {"deleted": pid}
+
+
+def _safe_file(name: str) -> str:
+    """Имя файла из шифра пробы (без символов, недопустимых в путях)."""
+    return re.sub(r'[<>:"/\\|?*\s]+', "_", str(name)).strip(" .") or "sample"
+
+
+@app.get("/api/projects/{pid}/masslists.zip", tags=["проекты"])
+def api_project_masslists(pid: int, db: Session = Depends(get_db)):
+    """
+    Масс-листы проекта одним zip-архивом.
+
+    Внутри — по файлу `<шифр>.csv` на пробу (актуальная загрузка каждой пробы; повторные съёмки
+    берутся текущей, как и в остальных расчётах), общий `all_mass_lists.csv` с колонкой `sample`
+    и `README.txt` с описанием колонок.
+    """
+    p = db.get(Project, pid) or _404("проект не найден")
+    spectra = an.current_spectra(db, project_id=pid)
+    if not spectra:
+        raise HTTPException(404, "в проекте нет загруженных спектров")
+    buf = io.BytesIO()
+    combined, n = [], 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for sp in spectra:
+            M = an.mass_list(an.formulas_df(db, sp.id))
+            if M.empty:
+                continue
+            n += 1
+            code = sp.sample.code
+            z.writestr(f"{_safe_file(code)}.csv", M.to_csv(index=False).encode("utf-8-sig"))
+            combined.append(M.assign(sample=code))
+        if combined:
+            C = pd.concat(combined, ignore_index=True, sort=False)
+            C = C[["sample"] + [c for c in an.MASS_LIST_COLUMNS if c in C.columns]]
+            z.writestr("all_mass_lists.csv", C.to_csv(index=False).encode("utf-8-sig"))
+        readme = (
+            f"Масс-листы проекта «{p.name}»\n"
+            f"Выгружено: {datetime.now():%d.%m.%Y %H:%M}\n"
+            f"Проб с масс-листами: {n}\n\n"
+            "Файлы <шифр>.csv — по одной пробе (актуальная загрузка).\n"
+            "all_mass_lists.csv — все пробы вместе, первая колонка sample.\n\n"
+            "Колонки:\n"
+            "  mz_cal — m/z (калиброванное), по возрастанию\n"
+            "  intensity — интенсивность пика\n"
+            "  rel_intensity — доля от суммы интенсивностей пробы\n"
+            "  formula — брутто-формула; elemental_class — CHO/CHON/CHOS/CHONS\n"
+            "  C, H, O, N, S — число атомов; DBE, AI_mod — индексы; err_ppm — ошибка m/z, ppm\n"
+        )
+        z.writestr("README.txt", readme.encode("utf-8"))
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": f"attachment; filename=mass_lists_project_{pid}.zip"})
 
 
 # ---------- API: анализ ----------

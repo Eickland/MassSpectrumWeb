@@ -6,6 +6,10 @@
 <div class="page-head">
   <div><h1>{{ p.name }}</h1><div class="sub">{{ p.description }}{% if p.lead %} · {{ p.lead }}{% endif %}</div></div>
   <div class="actions">
+    {% if samples | selectattr('current') | list %}
+    <a class="btn" href="/api/projects/{{ p.id }}/masslists.zip"
+       title="Скачать масс-листы всех проб проекта: CSV на каждую пробу + общий файл">Масс-листы проекта (ZIP)</a>
+    {% endif %}
     <a class="btn" href="/api/descriptors?project_id={{ p.id }}&format=csv">Дескрипторы (CSV)</a>
     <a class="btn btn-primary" href="/analysis?project_id={{ p.id }}">Анализ проекта</a>
   </div>

@@ -70,6 +70,22 @@ def formulas_df(db: Session, spectrum_id: int) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=FORMULA_FIELDS)
 
 
+#: колонки масс-листа: m/z, интенсивность и состав формулы — чтобы файл открывался и в Excel, и в другом ПО
+MASS_LIST_COLUMNS = ["mz_cal", "intensity", "rel_intensity", "formula", "elemental_class",
+                     "C", "H", "O", "N", "S", "DBE", "AI_mod", "err_ppm"]
+
+
+def mass_list(F: pd.DataFrame) -> pd.DataFrame:
+    """Таблица формул → масс-лист пробы (m/z по возрастанию, без служебных колонок)."""
+    if F.empty:
+        return pd.DataFrame(columns=MASS_LIST_COLUMNS)
+    M = F.copy()
+    M["mz_cal"] = M["mz_cal"].where(M["mz_cal"].notna(), M["theo_mz"])
+    M = M.rename(columns={"dbe": "DBE", "ai_mod": "AI_mod"})
+    cols = [c for c in MASS_LIST_COLUMNS if c in M.columns]
+    return M[cols].sort_values("mz_cal").reset_index(drop=True)
+
+
 def current_spectra(db: Session, codes: Optional[list[str]] = None, project_id: Optional[int] = None) -> list[Spectrum]:
     q = (select(Spectrum).join(Sample).where(Spectrum.is_current)
          .options(selectinload(Spectrum.sample).selectinload(Sample.project)))
