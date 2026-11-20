@@ -9,6 +9,7 @@ from scipy.stats import kruskal
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from . import classes as cl
 from . import humspectra as hs
 from .models import Formula, Sample, Spectrum
 
@@ -28,12 +29,18 @@ for _k, _l in (("mz", "m/z"), ("C", "C"), ("H", "H"), ("O", "O"), ("N", "N"), ("
                ("NOSC", "NOSC")):
     DESCRIPTOR_LABELS[f"mean_{_k}"] = f"{_l}, среднее"
     DESCRIPTOR_LABELS[f"wmean_{_k}"] = f"{_l}, взвеш. по интенсивности"
+for _k in cl.PERMINOVA_KEYS:
+    DESCRIPTOR_LABELS[f"perm_{_k}"] = f"Перминова: {cl.PERMINOVA_LABELS[_k]}"
+for _k in cl.KELLERMAN_KEYS:
+    DESCRIPTOR_LABELS[f"kell_{_k}"] = f"Kellerman: {cl.KELLERMAN_LABELS[_k]}"
 
 DESCRIPTOR_GROUPS = [
     ("Состав", ["n_formulas", "CHO", "CHON", "CHOS", "CHONS", "CRAM"]),
     ("Взвешенные средние", [f"wmean_{k}" for k in ("mz", "H/C", "O/C", "DBE", "DBE-O", "AI_mod", "NOSC", "C", "H", "O", "N", "S", "DBE-OC", "AI")]),
     ("Средние без весов", [f"mean_{k}" for k in ("mz", "H/C", "O/C", "DBE", "DBE-O", "AI_mod", "NOSC", "C", "H", "O", "N", "S", "DBE-OC", "AI")]),
     ("Классы Ласаковица", [f"lasz_{k}" for k in ("lignin", "tannin", "peptide", "lipid", "carbohydrate", "aminosugar", "undefinded")]),
+    ("Классы Перминовой", [f"perm_{k}" for k in cl.PERMINOVA_KEYS]),
+    ("Классы Kellerman", [f"kell_{k}" for k in cl.KELLERMAN_KEYS]),
     ("Квадраты Ван Кревелена", [f"D{i:02d}" for i in range(1, 21)]),
 ]
 KEY_DESCRIPTORS = ["n_formulas", "wmean_mz", "wmean_H/C", "wmean_O/C", "wmean_DBE", "wmean_AI_mod", "wmean_NOSC",
@@ -103,10 +110,13 @@ def kendrick(df: pd.DataFrame, base: str = "CH2") -> pd.DataFrame:
 
 
 def sample_chart_data(db: Session, sp: Spectrum) -> dict:
-    F = formulas_df(db, sp.id)
+    F = cl.add_formula_classes(formulas_df(db, sp.id))
     K = kendrick(F)
     d = {c: F[c].tolist() for c in ("formula", "theo_mz", "intensity", "rel_intensity", "hc", "oc", "dbe", "C", "O", "N",
                                     "S", "elemental_class", "err_ppm", "lasz_class", "square", "nosc", "ai_mod", "sn")}
+    d["class_perminova"] = F["class_perminova"].tolist()
+    d["class_kellerman"] = F["class_kellerman"].tolist()
+    d["ai"] = F["AI_std"].round(4).tolist()
     d["kmd"] = K["kmd"].round(5).tolist()
     sq = {f"D{i:02d}": 0.0 for i in range(1, 21)}
     sqi = dict(sq)
@@ -125,6 +135,8 @@ def sample_chart_data(db: Session, sp: Spectrum) -> dict:
                     "intensity": by_class["w"].tolist()},
         "lasz": {"labels": list(by_lasz.index), "count": (by_lasz["n"] / len(F)).tolist(),
                  "intensity": by_lasz["w"].tolist()},
+        "perm": cl.distribution(F, "class_perminova", cl.PERMINOVA_ZONES),
+        "kell": cl.distribution(F, "class_kellerman", cl.KELLERMAN_ZONES),
     })
 
 

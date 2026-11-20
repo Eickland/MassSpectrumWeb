@@ -74,11 +74,16 @@
   </div>
   <div class="tab-pane on" id="tab-vk">
     <div class="chart-head"><span class="muted">Размер точки — относительная интенсивность</span>
-      <div class="seg" id="vk-color"><button data-v="class" class="on">по классу</button><button data-v="lasz">Ласаковиц</button><button data-v="nosc">NOSC</button><button data-v="int">интенсивность</button></div></div>
+      <div class="seg" id="vk-color"><button data-v="class" class="on">по классу</button><button data-v="lasz">Ласаковиц</button><button data-v="perm">Перминова</button><button data-v="kell">Kellerman</button><button data-v="nosc">NOSC</button><button data-v="int">интенсивность</button></div></div>
     <div id="ch-vk" class="chart lg"></div>
   </div>
   <div class="tab-pane" id="tab-ms"><div id="ch-ms" class="chart lg"></div></div>
-  <div class="tab-pane" id="tab-cls"><div class="grid grid-2"><div><h3>Элементный состав</h3><div id="ch-cls" class="chart"></div></div><div><h3>Классы Ласаковица</h3><div id="ch-lasz" class="chart"></div></div></div></div>
+  <div class="tab-pane" id="tab-cls"><div class="grid grid-2">
+    <div><h3>Элементный состав</h3><div id="ch-cls" class="chart"></div></div>
+    <div><h3>Классы Ласаковица</h3><div id="ch-lasz" class="chart"></div></div>
+    <div><h3>Классы Перминовой (H/C–O/C)</h3><div id="ch-perm" class="chart"></div></div>
+    <div><h3>Классы Kellerman (AI)</h3><div id="ch-kell" class="chart"></div></div>
+  </div></div>
   <div class="tab-pane" id="tab-sq">
     <div class="chart-head"><span class="muted">Доли формул по квадратам диаграммы Ван Кревелена (нумерация get_squares_vk, standard)</span>
       <div class="seg" id="sq-mode"><button data-v="count" class="on">по числу</button><button data-v="intensity">по интенсивности</button></div></div>

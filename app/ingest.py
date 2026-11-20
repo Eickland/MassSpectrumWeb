@@ -18,6 +18,7 @@ import pandas as pd
 from sqlalchemy import insert, select, update
 from sqlalchemy.orm import Session
 
+from . import classes as cl
 from . import humspectra as hs
 from .models import Formula, Project, Sample, Spectrum
 
@@ -73,6 +74,7 @@ def read_formulas_csv(data: bytes) -> pd.DataFrame:
     # одна формула — одна строка (если CSV не из pipeline): оставляем самую интенсивную
     F = F.sort_values("intensity", ascending=False).drop_duplicates("formula").sort_values("theo_mz")
     F = hs.formula_metrics(F)
+    F = cl.add_formula_classes(F)
     F["rel_intensity"] = F["intensity"] / F["intensity"].sum()
     return F.reset_index(drop=True)
 
@@ -166,6 +168,7 @@ def ingest_spectrum(db: Session, name: str, formulas_csv: bytes, qc_json: Option
                 "n_formulas": same.n_formulas}
     db.execute(update(Spectrum).where(Spectrum.sample_id == sample.id).values(is_current=False))
     desc = _clean_json(hs.sample_descriptors(F))
+    desc.update(_clean_json(cl.descriptor_fractions(F)))
     sp = Spectrum(sample=sample, is_current=True, source_name=name, sha256=sha, n_formulas=len(F),
                   descriptors=desc, mz_min=float(F["theo_mz"].min()), mz_max=float(F["theo_mz"].max()))
     if "err_ppm" in F and F["err_ppm"].notna().any():

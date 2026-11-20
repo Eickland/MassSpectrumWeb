@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from . import analysis as an
-from . import config, humspectra, journal
+from . import backfill, config, humspectra, journal
 from .db import SessionLocal, get_db, init_db
 from .ingest import IngestError, get_or_create_project, ingest_files
 from .models import Formula, Project, Sample, Spectrum
@@ -44,6 +44,15 @@ async def lifespan(_app):
             if not db.scalar(select(func.count()).select_from(Sample)):
                 log.info("Импорт прежнего журнала %s: %s", legacy, journal.import_journal(db, legacy.read_bytes()))
     log.info("HumSpectra pipeline: %s; БД: %s", humspectra.pipeline_dir(), config.DATABASE_URL.split("@")[-1])
+    # новые дескрипторы (классы Перминовой/Kellerman) у уже загруженных спектров
+    with SessionLocal() as db:
+        if backfill.needs_backfill(db):
+            try:
+                n = backfill.recompute_descriptors(db)
+                log.info("Дескрипторы пересчитаны (классы Перминовой/Kellerman): %s загрузок", n)
+            except Exception:  # noqa: BLE001 — сайт должен подняться даже без пересчёта
+                db.rollback()
+                log.exception("Не удалось пересчитать дескрипторы")
     if not config.WEB_PASSWORD:
         log.warning("WEB_PASSWORD не задан — веб-интерфейс и загрузка открыты без пароля")
     if not config.API_KEY:

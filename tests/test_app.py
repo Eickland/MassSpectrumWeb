@@ -214,6 +214,48 @@ def test_project_masslists_zip(client):
     assert f"/api/projects/{pid}/masslists.zip" in page.text
 
 
+def test_class_descriptors_and_charts(client):
+    from app import classes as cl
+    name = "ADOM-CLS-1_000001"
+    df = fake_formulas(500)
+    r = client.post("/api/upload", headers={"X-API-Key": "test-key"},
+                    files={"formulas": (f"{name}.csv", csv_bytes(df))})
+    assert r.status_code == 200
+    s = client.get(f"/api/samples/{name}").json()
+    d = s["descriptors"]
+    for k in cl.PERMINOVA_KEYS:
+        assert f"perm_{k}" in d
+    for k in cl.KELLERMAN_KEYS:
+        assert f"kell_{k}" in d
+    assert abs(sum(d[f"perm_{k}"] for k in cl.PERMINOVA_KEYS) - 1) < 1e-9
+    assert abs(sum(d[f"kell_{k}"] for k in cl.KELLERMAN_KEYS) - 1) < 1e-9
+    cd = client.get(f"/api/samples/{name}/chart-data").json()
+    assert len(cd["formulas"]["class_perminova"]) == len(df) == len(cd["formulas"]["class_kellerman"])
+    assert set(cd["perm"]["keys"]) == set(cl.PERMINOVA_KEYS)
+    assert len(cd["perm"]["labels"]) == len(cd["perm"]["colors"]) == len(cl.PERMINOVA_KEYS)
+    page = client.get(f"/samples/{name}")
+    assert "Классы Перминовой" in page.text and "Kellerman (AI)" in page.text
+
+
+def test_backfill_recomputes_class_descriptors(client):
+    from sqlalchemy import select
+    from app import backfill
+    from app.db import SessionLocal
+    from app.models import Sample, Spectrum
+    name = "ADOM-BF-1_000001"
+    client.post("/api/upload", headers={"X-API-Key": "test-key"},
+                files={"formulas": (f"{name}.csv", csv_bytes(fake_formulas(501)))})
+    with SessionLocal() as db:
+        sp = db.scalar(select(Spectrum).join(Sample).where(Sample.code == name))
+        sp.descriptors = {}
+        db.commit()
+        assert backfill.needs_backfill(db)
+        assert backfill.recompute_descriptors(db) >= 1
+        db.refresh(sp)
+        assert "perm_undefinded" in sp.descriptors and "kell_undefinded" in sp.descriptors
+        assert sp.descriptors.get("wmean_H/C") is not None
+
+
 def test_pages_render(client):
     for u in ["/samples", "/samples/PEAT-7", "/samples/ADOM_B_2025_000001_vk", "/projects", "/projects/1",
               "/analysis", "/analysis?project_id=1", "/journal", "/upload"]:

@@ -8,6 +8,8 @@
   const hover = i => `<b>${F.formula[i]}</b><br>m/z ${F.theo_mz[i].toFixed(4)}<br>H/C ${F.hc[i].toFixed(3)}, O/C ${F.oc[i].toFixed(3)}<br>DBE ${F.dbe[i]}, NOSC ${F.nosc[i].toFixed(2)}<br>отн. инт. ${(F.rel_intensity[i] * 100).toFixed(3)} %`;
   const LASZ = { lignin: '#7a5c3e', tannin: '#b5651d', peptide: '#c23b3b', lipid: '#d4a017', carbohydrate: '#3f9aa8', aminosugar: '#6b5fb5', undefinded: '#a0a9b3' };
   const LASZ_RU = { lignin: 'лигнины', tannin: 'танины', peptide: 'пептиды', lipid: 'липиды', carbohydrate: 'углеводы', aminosugar: 'аминосахара', undefinded: 'не опред.' };
+  const meta = d => Object.fromEntries(d.keys.map((k, i) => [k, { label: d.labels[i], color: d.colors[i] }]));
+  const PERM = meta(D.perm), KELL = meta(D.kell);
   const ORDER = ['CHO', 'CHON', 'CHOS', 'CHONS'];
   const byKey = (key) => { const m = {}; idx.forEach(i => (m[F[key][i]] ||= []).push(i));
     if (key !== 'elemental_class') return m; const o = {}; ORDER.forEach(k => { if (m[k]) o[k] = m[k]; }); return o; };
@@ -19,6 +21,8 @@
       text: ids.map(hover), hoverinfo: 'text', marker: { size: ids.map(size), color, opacity: .7, line: { width: 0 } } });
     if (mode === 'class') traces = Object.entries(byKey('elemental_class')).map(([k, ids]) => sub(ids, `${k} (${ids.length})`, CLASS_COLORS[k]));
     else if (mode === 'lasz') traces = Object.entries(byKey('lasz_class')).map(([k, ids]) => sub(ids, `${LASZ_RU[k] || k} (${ids.length})`, LASZ[k] || '#888'));
+    else if (mode === 'perm') traces = Object.entries(byKey('class_perminova')).map(([k, ids]) => sub(ids, `${PERM[k]?.label || k} (${ids.length})`, PERM[k]?.color || '#888'));
+    else if (mode === 'kell') traces = Object.entries(byKey('class_kellerman')).map(([k, ids]) => sub(ids, `${KELL[k]?.label || k} (${ids.length})`, KELL[k]?.color || '#888'));
     else {
       const key = mode === 'nosc' ? 'nosc' : 'rel_intensity';
       const order = idx.slice().sort((a, b) => F[key][a] - F[key][b]);
@@ -50,6 +54,14 @@
       { type: 'bar', name: 'по числу формул', x: ord.map(i => LASZ_RU[l.labels[i]] || l.labels[i]), y: ord.map(i => l.count[i] * 100), marker: { color: ord.map(i => LASZ[l.labels[i]]) } },
       { type: 'bar', name: 'по интенсивности', x: ord.map(i => LASZ_RU[l.labels[i]] || l.labels[i]), y: ord.map(i => l.intensity[i] * 100), marker: { color: ord.map(i => LASZ[l.labels[i]]), opacity: .45 } },
     ], layout({ barmode: 'group', yaxis: { title: '%' } }), PLOT_CFG);
+    const zones = (id, d) => {
+      const ix = d.keys.map((_, i) => i).filter(i => d.count[i] > 0 || d.intensity[i] > 0).sort((a, b) => d.count[b] - d.count[a]);
+      Plotly.react(id, [
+        { type: 'bar', name: 'по числу формул', x: ix.map(i => d.labels[i]), y: ix.map(i => d.count[i] * 100), marker: { color: ix.map(i => d.colors[i]) }, hovertemplate: '%{x}: %{y:.1f} %<extra>по числу</extra>' },
+        { type: 'bar', name: 'по интенсивности', x: ix.map(i => d.labels[i]), y: ix.map(i => d.intensity[i] * 100), marker: { color: ix.map(i => d.colors[i]), opacity: .45 }, hovertemplate: '%{x}: %{y:.1f} %<extra>по интенсивности</extra>' },
+      ], layout({ barmode: 'group', yaxis: { title: '%' }, margin: { b: 90 } }), PLOT_CFG);
+    };
+    zones('ch-perm', D.perm); zones('ch-kell', D.kell);
   }
 
   function squares(mode) {
