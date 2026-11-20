@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Загрузка{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Загрузка результатов</h1><div class="sub">Спектры обрабатываются на рабочем компьютере конвейером HumSpectra; сюда загружаются готовые таблицы формул</div></div>
+</div>
+<div class="grid grid-2">
+  <div class="panel">
+    <h2>Через браузер</h2>
+    <div class="drop" id="drop">
+      <strong>Перетащите файлы сюда</strong> или щёлкните, чтобы выбрать<br>
+      <span style="font-size:13px"><code>formulas/&lt;проба&gt;.csv</code> + <code>qc/&lt;проба&gt;.json</code>, или zip-архив папки результатов <code>run_batch</code></span>
+      <input type="file" id="files" multiple accept=".csv,.json,.zip" hidden>
+    </div>
+    <div class="file-list" id="flist"></div>
+    <div class="field" style="margin-top:14px"><label>Проект для новых проб (необязательно)</label>
+      <input type="text" id="project" list="projects-dl" placeholder="назначается пробам, у которых проекта ещё нет">
+      <datalist id="projects-dl">{% for p in projects %}<option value="{{ p.name }}">{% endfor %}</datalist></div>
+    <button class="btn btn-primary" id="go" disabled>Загрузить</button>
+    <div id="result" style="margin-top:14px"></div>
+  </div>
+  <div class="panel">
+    <h2>Скриптом с рабочего компьютера</h2>
+    <p>После обработки серии конвейером:</p>
+    <pre class="code">python scripts/ftms_pipeline.py D:/lab/raw D:/lab/final_spectra \
+    --blank D:/lab/raw/2026_11_10/MeOH_000001 \
+    --group Baikal=SLB --group "Solzan=SL\d"</pre>
+    <p>загрузите папку результатов:</p>
+    <pre class="code">python scripts/upload_results.py D:/lab/final_spectra --project "Байкал-Солзан"</pre>
+    <p class="muted">Скрипт берёт <code>formulas/*.csv</code> и <code>qc/*.json</code> (пики и mzML не передаются), адрес сервера и ключ — из
+      <code>secret_uploader.json</code> (<code>{"API_URL": "https://…/api/upload", "API_KEY": "…"}</code>).
+      {% if not api_enabled %}<br><strong style="color:var(--bad)">На сервере не задан API_KEY — загрузка скриптом отключена.</strong>{% endif %}</p>
+    <h3 style="margin-top:16px">Что делает сервер</h3>
+    <ul class="muted" style="padding-left:18px;margin:0">
+      <li>сопоставляет файл с пробой журнала по шифру (с суффиксом прибора <code>_000001</code> или без);</li>
+      <li>пересчитывает дескрипторы функциями <code>HumSpectra.mass_spectra.pipeline.descriptors</code>;</li>
+      <li>сохраняет формулы в БД; прежняя загрузка остаётся в истории пробы;</li>
+      <li>повторная загрузка того же CSV ничего не дублирует.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const drop = document.getElementById('drop'), inp = document.getElementById('files'), go = document.getElementById('go');
+  let files = [];
+  const list = () => { document.getElementById('flist').innerHTML = files.map(f => `<div><span>${esc(f.webkitRelativePath || f.name)}</span><span class="muted">${(f.size / 1024).toFixed(0)} КБ</span></div>`).join(''); go.disabled = !files.length; };
+  drop.onclick = () => inp.click();
+  inp.onchange = () => { files = [...inp.files]; list(); };
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { files = [...e.dataTransfer.files]; list(); });
+  go.onclick = async () => {
+    const fd = new FormData(); files.forEach(f => fd.append('files', f, f.webkitRelativePath || f.name));
+    const p = document.getElementById('project').value.trim(); if (p) fd.append('project', p);
+    go.disabled = true; go.textContent = 'Загружаю…';
+    try {
+      const r = await fetch('/api/upload', { method: 'POST', body: fd }); const d = await r.json();
+      if (!d.results) throw new Error(d.detail || r.statusText);
+      const st = { created: 'добавлен', unchanged: 'без изменений', error: 'ошибка' };
+      document.getElementById('result').innerHTML = `<p><strong>Загружено: ${d.ok}</strong>${d.errors ? `, ошибок: ${d.errors}` : ''}</p>` +
+        '<div class="table-wrap"><table class="data compact"><thead><tr><th>Проба</th><th>Статус</th><th class="num">Формул</th><th></th></tr></thead><tbody>' +
+        d.results.map(x => `<tr><td class="code">${x.status !== 'error' ? `<a href="/samples/${encodeURIComponent(x.sample)}">${esc(x.sample)}</a>` : esc(x.sample)}</td><td>${st[x.status] || x.status}</td><td class="num">${x.n_formulas ?? ''}</td><td class="muted">${esc(x.error || x.quality || '')}</td></tr>`).join('') + '</tbody></table></div>';
+      files = []; list();
+    } catch (e) { toast(e.message, true); }
+    finally { go.textContent = 'Загрузить'; go.disabled = !files.length; }
+  };
+</script>
+{% endblock %}

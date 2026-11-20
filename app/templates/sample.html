@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "_macros.html" import quality %}
+{% block title %}{{ s.code }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="/samples">Пробы</a>{% if s.project %} · <a href="/projects/{{ s.project.id }}">{{ s.project.name }}</a>{% endif %}</div>
+<div class="page-head">
+  <div>
+    <h1 style="font-family:var(--mono);font-size:20px">{{ s.code }}</h1>
+    <div class="sub">{{ s.description or s.sample_type or '' }}{% if s.location %} · {{ s.location }}{% endif %}</div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btn-edit">Редактировать</button>
+    {% if sp %}<a class="btn" href="/api/samples/{{ s.code|urlencode }}/formulas.csv">Формулы (CSV)</a>
+    <a class="btn" href="/analysis?samples={{ s.code|urlencode }}">В анализ</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-3">
+  <div class="panel">
+    <h3>Журнал</h3>
+    <dl class="kv">
+      <dt>Проект</dt><dd>{% if s.project %}<a href="/projects/{{ s.project.id }}">{{ s.project.name }}</a>{% else %}—{% endif %}</dd>
+      <dt>Группа</dt><dd>{{ s.group_label or '—' }}</dd>
+      <dt>Тип</dt><dd>{{ s.sample_type or '—' }}</dd>
+      <dt>Место отбора</dt><dd>{{ s.location or '—' }}</dd>
+      <dt>Дата отбора</dt><dd>{{ s.sampling_date|d or '—' }}</dd>
+      <dt>Выделение</dt><dd>{{ s.extraction or '—' }}</dd>
+      <dt>Дата съёмки</dt><dd>{{ s.measured_at|d or '—' }}</dd>
+      <dt>Оператор</dt><dd>{{ s.operator or '—' }}</dd>
+    </dl>
+    {% if s.notes %}<p class="muted" style="margin:10px 0 0">{{ s.notes }}</p>{% endif %}
+  </div>
+  {% if sp %}
+  <div class="panel">
+    <h3>Спектр и качество</h3>
+    <dl class="kv">
+      <dt>Загружен</dt><dd>{{ sp.uploaded_at|dt }}</dd>
+      <dt>Формул</dt><dd><strong>{{ sp.n_formulas }}</strong>{% if sp.n_peaks %} <span class="muted">из {{ sp.n_peaks }} пиков</span>{% endif %}</dd>
+      <dt>Качество</dt><dd>{{ quality(sp.quality) }}</dd>
+      <dt>Окно приписывания</dt><dd>{{ ('±' ~ (sp.assign_tol_ppm|num(2)) ~ ' ppm') if sp.assign_tol_ppm else '—' }}</dd>
+      <dt>RMS ошибки формул</dt><dd>{{ (sp.final_err_rms_ppm|num(3) ~ ' ppm') if sp.final_err_rms_ppm is not none else '—' }}</dd>
+      <dt>σ сильных пиков</dt><dd>{{ (sp.sigma_strong_ppm|num(3) ~ ' ppm') if sp.sigma_strong_ppm is not none else '—' }}</dd>
+      <dt>Калибровка, RMS</dt><dd>{{ (sp.calib_rms_ppm|num(3) ~ ' ppm') if sp.calib_rms_ppm is not none else '—' }}{% if sp.qc.calibration %} <span class="muted">(n = {{ sp.qc.calibration.n }})</span>{% endif %}</dd>
+      <dt>¹³C подтверждено</dt><dd>{{ (sp.c13_confirmed_pct|num(1) ~ ' %') if sp.c13_confirmed_pct is not none else '—' }}</dd>
+      <dt>Диапазон m/z</dt><dd>{{ sp.mz_min|num(1) }} – {{ sp.mz_max|num(1) }}</dd>
+    </dl>
+  </div>
+  <div class="panel">
+    <h3>Ключевые дескрипторы</h3>
+    {% set d = sp.descriptors %}
+    <dl class="kv">
+      {% for k in ['wmean_mz','wmean_H/C','wmean_O/C','wmean_DBE','wmean_AI_mod','wmean_NOSC','CRAM'] %}
+      <dt>{{ labels.get(k, k) }}</dt><dd>{{ d.get(k)|num(3) }}</dd>
+      {% endfor %}
+      <dt>CHO / CHON / CHOS / CHONS</dt><dd>{{ (d.get('CHO',0)*100)|round(1) }} / {{ (d.get('CHON',0)*100)|round(1) }} / {{ (d.get('CHOS',0)*100)|round(1) }} / {{ (d.get('CHONS',0)*100)|round(1) }} %</dd>
+    </dl>
+  </div>
+  {% else %}
+  <div class="panel" style="grid-column: span 2"><div class="empty">Для этой пробы ещё не загружен спектр. Загрузите <code>formulas/{{ s.code }}.csv</code> и <code>qc/{{ s.code }}.json</code> на странице <a href="/upload">«Загрузка»</a>.</div></div>
+  {% endif %}
+</div>
+
+{% if sp %}
+<div class="panel" style="margin-top:16px">
+  <div class="tabs" id="tabs">
+    <button data-tab="vk" class="on">Ван Кревелен</button>
+    <button data-tab="ms">Масс-спектр</button>
+    <button data-tab="cls">Классы</button>
+    <button data-tab="sq">Квадраты</button>
+    <button data-tab="dbe">DBE / Кендрик</button>
+    <button data-tab="err">Ошибка m/z</button>
+    <button data-tab="desc">Все дескрипторы</button>
+    <button data-tab="hist">История загрузок ({{ s.spectra|length }})</button>
+  </div>
+  <div class="tab-pane on" id="tab-vk">
+    <div class="chart-head"><span class="muted">Размер точки — относительная интенсивность</span>
+      <div class="seg" id="vk-color"><button data-v="class" class="on">по классу</button><button data-v="lasz">Ласаковиц</button><button data-v="nosc">NOSC</button><button data-v="int">интенсивность</button></div></div>
+    <div id="ch-vk" class="chart lg"></div>
+  </div>
+  <div class="tab-pane" id="tab-ms"><div id="ch-ms" class="chart lg"></div></div>
+  <div class="tab-pane" id="tab-cls"><div class="grid grid-2"><div><h3>Элементный состав</h3><div id="ch-cls" class="chart"></div></div><div><h3>Классы Ласаковица</h3><div id="ch-lasz" class="chart"></div></div></div></div>
+  <div class="tab-pane" id="tab-sq">
+    <div class="chart-head"><span class="muted">Доли формул по квадратам диаграммы Ван Кревелена (нумерация get_squares_vk, standard)</span>
+      <div class="seg" id="sq-mode"><button data-v="count" class="on">по числу</button><button data-v="intensity">по интенсивности</button></div></div>
+    <div id="ch-sq" class="chart lg"></div>
+  </div>
+  <div class="tab-pane" id="tab-dbe"><div class="grid grid-2"><div><h3>DBE от числа C</h3><div id="ch-dbe" class="chart"></div></div><div><h3>Дефект массы Кендрика (CH₂)</h3><div id="ch-kmd" class="chart"></div></div></div></div>
+  <div class="tab-pane" id="tab-err"><div id="ch-err" class="chart"></div></div>
+  <div class="tab-pane" id="tab-desc">
+    <div class="grid grid-2">
+      {% for title, keys in groups %}
+      <div><h3>{{ title }}</h3><table class="data compact"><tbody>
+        {% for k in keys if k in sp.descriptors %}<tr><td>{{ labels.get(k, k) }}</td><td class="num">{{ sp.descriptors[k]|num(4) }}</td></tr>{% endfor %}
+      </tbody></table></div>
+      {% endfor %}
+      <div><h3>Параметры конвейера</h3>
+        {% if sp.params %}<table class="data compact"><tbody>{% for k, v in sp.params.items() %}<tr><td>{{ k }}</td><td class="code">{{ v }}</td></tr>{% endfor %}</tbody></table>
+        {% else %}<p class="muted">QC-файл не загружен</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="tab-pane" id="tab-hist">
+    <table class="data"><thead><tr><th>Загружен</th><th>Имя в конвейере</th><th class="num">Формул</th><th>Качество</th><th></th></tr></thead><tbody>
+      {% for x in s.spectra %}<tr><td>{{ x.uploaded_at|dt }}</td><td class="code">{{ x.source_name }}</td><td class="num">{{ x.n_formulas }}</td><td>{{ quality(x.quality) }}</td>
+      <td>{% if x.is_current %}<span class="tag">актуальный</span>{% else %}<button class="btn btn-sm" onclick="makeCurrent({{ x.id }})">Сделать актуальным</button>{% endif %}
+          <button class="btn btn-sm btn-danger" onclick="delSpectrum({{ x.id }})">Удалить</button></td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+{% endif %}
+{% include "_sample_dialog.html" %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/plotly.min.js"></script>
+<script>
+  const CODE = {{ s.code|tojson }};
+  document.getElementById('btn-edit').onclick = async () => openSampleDialog(await api(`/api/samples/${encodeURIComponent(CODE)}`),
+    r => location.href = r ? `/samples/${encodeURIComponent(r.code)}` : '/samples');
+  async function makeCurrent(id) { await api(`/api/spectra/${id}/current`, { method: 'POST' }); location.reload(); }
+  async function delSpectrum(id) { if (!confirm('Удалить эту загрузку спектра?')) return; await api(`/api/spectra/${id}`, { method: 'DELETE' }); location.reload(); }
+</script>
+{% if sp %}<script src="/static/js/sample.js"></script>{% endif %}
+{% endblock %}

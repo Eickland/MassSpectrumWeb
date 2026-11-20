@@ -1,14 +1,18 @@
-version: '3.8'
 services:
-  mass-spec-server:
-    build: .
+  msweb:
+    build:
+      context: .
+      additional_contexts:
+        # репозиторий HumSpectra (нужен подпакет mass_spectra/pipeline);
+        # вместо локальной папки можно указать git: https://github.com/Eickland/HumSpectra.git#main
+        humspectra: ${HUMSPECTRA_CONTEXT:-../HumSpectra}
     container_name: MassSpectrumWeb
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:8080"
     volumes:
-      - ./data:/data  # Вот здесь магия сохранения данных
+      - ./data:/data          # БД msweb.sqlite и прежний lab_journal.xlsx
+    env_file: .env            # API_KEY, WEB_USER, WEB_PASSWORD (см. .env.example)
     environment:
       - DATA_PATH=/data
-      - API_KEY=3fjeiu289fh8238h84fh781290
       - TZ=Europe/Moscow
     restart: unless-stopped

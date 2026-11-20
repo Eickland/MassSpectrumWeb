@@ -1,0 +1,40 @@
+{% macro quality(q) -%}
+{%- if q == 'good' -%}<span class="badge q-good">хорошее</span>
+{%- elif q == 'reduced mass accuracy' -%}<span class="badge q-reduced">сниж. точность</span>
+{%- elif q == 'poor' -%}<span class="badge q-poor">плохое</span>
+{%- elif q -%}<span class="badge">{{ q }}</span>
+{%- else -%}<span class="muted">—</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro sample_rows(samples, show_project=True, selectable=False) %}
+{% for s in samples %}{% set sp = s.current %}
+<tr data-project="{{ s.project.name if s.project else '' }}" data-quality="{{ sp.quality if sp else 'none' }}"
+    data-search="{{ (s.code ~ ' ' ~ (s.project.name if s.project else '') ~ ' ' ~ s.group_label ~ ' ' ~ s.location ~ ' ' ~ s.description)|lower }}">
+  {% if selectable %}<td><input type="checkbox" class="row-chk" value="{{ s.code }}" {{ 'disabled' if not sp }}></td>{% endif %}
+  <td class="code"><a href="/samples/{{ s.code|urlencode }}">{{ s.code }}</a></td>
+  {% if show_project %}<td>{% if s.project %}<a href="/projects/{{ s.project.id }}">{{ s.project.name }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
+  <td>{{ s.group_label or '' }}</td>
+  <td data-sort="{{ s.sampling_date.isoformat() if s.sampling_date else '' }}">{{ s.sampling_date|d }}</td>
+  <td data-sort="{{ sp.uploaded_at.isoformat() if sp else '' }}">{{ sp.uploaded_at|dt if sp else '' }}</td>
+  <td class="num" data-sort="{{ sp.n_formulas if sp else -1 }}">{{ sp.n_formulas if sp else '—' }}</td>
+  <td data-sort="{{ sp.quality if sp else 'zz' }}">{{ quality(sp.quality) if sp else '<span class="muted">нет спектра</span>'|safe }}</td>
+  <td class="num" data-sort="{{ sp.final_err_rms_ppm if sp and sp.final_err_rms_ppm is not none else 99 }}">{{ sp.final_err_rms_ppm|num(3) if sp else '' }}</td>
+  <td class="wrap muted">{{ s.description }}</td>
+</tr>
+{% endfor %}
+{% endmacro %}
+
+{% macro sample_head(show_project=True, selectable=False) %}
+<tr>
+  {% if selectable %}<th><input type="checkbox" id="chk-all" title="Выбрать все видимые"></th>{% endif %}
+  <th class="sortable">Проба</th>
+  {% if show_project %}<th class="sortable">Проект</th>{% endif %}
+  <th class="sortable">Группа</th>
+  <th class="sortable">Дата отбора</th>
+  <th class="sortable">Загружен</th>
+  <th class="sortable num">Формул</th>
+  <th class="sortable">Качество</th>
+  <th class="sortable num" title="RMS ошибки итоговых формул, ppm">RMS, ppm</th>
+  <th>Описание</th>
+</tr>
+{% endmacro %}

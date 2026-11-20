@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sample_rows, sample_head %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="/projects">Проекты</a></div>
+<div class="page-head">
+  <div><h1>{{ p.name }}</h1><div class="sub">{{ p.description }}{% if p.lead %} · {{ p.lead }}{% endif %}</div></div>
+  <div class="actions">
+    <a class="btn" href="/api/descriptors?project_id={{ p.id }}&format=csv">Дескрипторы (CSV)</a>
+    <a class="btn btn-primary" href="/analysis?project_id={{ p.id }}">Анализ проекта</a>
+  </div>
+</div>
+
+{% if summary %}
+<div class="panel" style="margin-bottom:16px">
+  <h2>Сводка по пробам со спектрами</h2>
+  <div class="table-wrap" style="border:0">
+    <table class="data compact"><thead><tr><th>Дескриптор</th><th class="num">медиана</th><th class="num">мин</th><th class="num">макс</th></tr></thead><tbody>
+      {% for r in summary %}<tr><td>{{ r.label }}</td><td class="num">{{ r.median|num(3) }}</td><td class="num">{{ r.min|num(3) }}</td><td class="num">{{ r.max|num(3) }}</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+<div class="panel" style="margin-bottom:16px">
+  <div class="chart-head"><h2>Дескрипторы проб</h2>
+    <select id="desc-sel">{% for k in ['wmean_H/C','wmean_O/C','wmean_DBE','wmean_AI_mod','wmean_NOSC','wmean_mz','n_formulas','CHO','CHON','CHOS','CRAM'] %}<option value="{{ k }}">{{ labels.get(k,k) }}</option>{% endfor %}</select></div>
+  <div id="ch-desc" class="chart sm"></div>
+</div>
+{% endif %}
+
+<div class="toolbar"><input type="search" id="q" class="grow" placeholder="Поиск по пробам проекта…"><span class="count" id="count"></span></div>
+<div class="table-wrap">
+  <table class="data" id="tbl"><thead>{{ sample_head(False) }}</thead><tbody>{{ sample_rows(samples, False) }}</tbody></table>
+  {% if not samples %}<div class="empty">В проекте пока нет проб.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/plotly.min.js"></script>
+<script>
+  const t = document.getElementById('tbl'); makeSortable(t); makeFilter(t, { q: '#q', count: '#count' });
+  {% if summary %}
+  (async () => {
+    const D = await api('/api/descriptors?project_id={{ p.id }}');
+    const sel = document.getElementById('desc-sel');
+    const draw = () => {
+      const k = sel.value, rows = D.rows.slice().sort((a, b) => (a.group || '').localeCompare(b.group || '') || a.sample.localeCompare(b.sample));
+      const groups = [...new Set(rows.map(r => r.group || '—'))];
+      Plotly.react('ch-desc', groups.map((g, i) => { const rr = rows.filter(r => (r.group || '—') === g);
+        return { type: 'bar', name: g, x: rr.map(r => r.sample), y: rr.map(r => r[k]), marker: { color: GROUP_COLORS[i % GROUP_COLORS.length] } }; }),
+        layout({ margin: { b: 110 }, xaxis: { tickangle: -40 }, yaxis: { title: sel.selectedOptions[0].text }, showlegend: groups.length > 1 }), PLOT_CFG);
+    };
+    sel.onchange = draw; draw();
+  })().catch(e => toast(e.message, true));
+  {% endif %}
+</script>
+{% endblock %}

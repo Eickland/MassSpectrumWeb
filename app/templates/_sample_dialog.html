@@ -1,0 +1,28 @@
+<dialog id="sample-dlg">
+  <form method="dialog">
+    <div class="dlg-head"><h2 class="dlg-title" style="margin:0">Проба</h2><button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">✕</button></div>
+    <div class="dlg-body">
+      <div class="form-grid">
+        <div class="field wide"><label>Шифр пробы *</label><input type="text" name="code" required placeholder="ADOM-SLB-1"></div>
+        <div class="field"><label>Проект</label><input type="text" name="project" list="projects-dl" placeholder="выберите или впишите новый"></div>
+        <div class="field"><label>Группа (для статистики)</label><input type="text" name="group_label" placeholder="Baikal"></div>
+        <div class="field"><label>Тип пробы</label><input type="text" name="sample_type" list="types-dl"></div>
+        <div class="field"><label>Метод выделения</label><input type="text" name="extraction" list="extr-dl"></div>
+        <div class="field wide"><label>Место отбора</label><input type="text" name="location"></div>
+        <div class="field"><label>Дата отбора</label><input type="date" name="sampling_date"></div>
+        <div class="field"><label>Дата съёмки спектра</label><input type="date" name="measured_at"></div>
+        <div class="field wide"><label>Оператор</label><input type="text" name="operator"></div>
+        <div class="field wide"><label>Описание</label><textarea name="description"></textarea></div>
+        <div class="field wide"><label>Примечания</label><textarea name="notes"></textarea></div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-danger btn-delete" style="margin-right:auto">Удалить пробу</button>
+      <button type="button" class="btn" onclick="this.closest('dialog').close()">Отмена</button>
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+    </div>
+  </form>
+  <datalist id="projects-dl">{% for p in projects %}<option value="{{ p.name }}">{% endfor %}</datalist>
+  <datalist id="types-dl"><option value="природная вода"><option value="почва"><option value="донные отложения"><option value="торф"><option value="препарат ГВ"><option value="сточная вода"></datalist>
+  <datalist id="extr-dl"><option value="SPE PPL"><option value="SPE C18"><option value="щелочная экстракция"><option value="без выделения"></datalist>
+</dialog>

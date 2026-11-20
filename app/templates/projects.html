@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Проекты{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Проекты</h1><div class="sub">Пробы группируются по проектам из лабораторного журнала</div></div>
+  <div class="actions"><button class="btn btn-primary" id="btn-new">Новый проект</button></div>
+</div>
+<div class="table-wrap">
+  <table class="data" id="tbl">
+    <thead><tr><th class="sortable">Проект</th><th class="sortable">Руководитель</th><th class="sortable num">Проб</th><th class="sortable num">Со спектрами</th>
+      <th class="sortable num">Формул (медиана)</th><th class="sortable">Последняя загрузка</th><th>Описание</th><th></th></tr></thead>
+    <tbody>
+    {% for p in projects %}
+      {% set sp = p.samples|map(attribute='current')|select|list %}
+      {% set nf = sp|map(attribute='n_formulas')|sort|list %}
+      {% set last = sp|map(attribute='uploaded_at')|max if sp else none %}
+      <tr>
+        <td><a href="/projects/{{ p.id }}"><strong>{{ p.name }}</strong></a></td>
+        <td>{{ p.lead }}</td>
+        <td class="num">{{ p.samples|length }}</td>
+        <td class="num">{{ sp|length }}</td>
+        <td class="num">{{ nf[(nf|length)//2] if nf else '—' }}</td>
+        <td data-sort="{{ last.isoformat() if last else '' }}">{{ last|dt }}</td>
+        <td class="wrap muted">{{ p.description }}</td>
+        <td><button class="btn btn-sm" onclick='editProject({{ {"id": p.id, "name": p.name, "description": p.description, "lead": p.lead}|tojson }})'>Изменить</button></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if not projects %}<div class="empty">Проектов нет. Создайте проект или импортируйте лабораторный журнал.</div>{% endif %}
+</div>
+{% if orphans %}<p class="muted">Проб без проекта: {{ orphans }} — назначьте проект в <a href="/journal">журнале</a>.</p>{% endif %}
+
+<dialog id="proj-dlg"><form method="dialog">
+  <div class="dlg-head"><h2 style="margin:0" class="dlg-title">Проект</h2><button type="button" class="btn btn-sm" onclick="this.closest('dialog').close()">✕</button></div>
+  <div class="dlg-body">
+    <div class="field"><label>Название *</label><input type="text" name="name" required></div>
+    <div class="field"><label>Руководитель / ответственный</label><input type="text" name="lead"></div>
+    <div class="field"><label>Описание</label><textarea name="description"></textarea></div>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn btn-danger btn-delete" style="margin-right:auto">Удалить проект</button>
+    <button type="button" class="btn" onclick="this.closest('dialog').close()">Отмена</button>
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+  </div>
+</form></dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+  makeSortable(document.getElementById('tbl'));
+  const dlg = document.getElementById('proj-dlg'), f = dlg.querySelector('form');
+  function editProject(p) {
+    f.reset(); dlg.querySelector('.dlg-title').textContent = p ? 'Проект' : 'Новый проект';
+    if (p) { f.name.value = p.name; f.lead.value = p.lead || ''; f.description.value = p.description || ''; }
+    dlg.querySelector('.btn-delete').style.display = p ? '' : 'none';
+    dlg.querySelector('.btn-delete').onclick = async () => {
+      if (!confirm(`Удалить проект «${p.name}»? Пробы останутся, но без проекта.`)) return;
+      await api(`/api/projects/${p.id}`, { method: 'DELETE' }); location.reload();
+    };
+    f.onsubmit = async e => {
+      e.preventDefault(); const data = Object.fromEntries(new FormData(f).entries());
+      try { await api(p ? `/api/projects/${p.id}` : '/api/projects', { method: p ? 'PATCH' : 'POST', json: data }); location.reload(); }
+      catch (err) { toast(err.message, true); }
+    };
+    dlg.showModal();
+  }
+  document.getElementById('btn-new').onclick = () => editProject(null);
+</script>
+{% endblock %}

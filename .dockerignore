@@ -1,0 +1,12 @@
+.git
+data
+.env
+**/__pycache__
+tests
+*.go
+go.mod
+go.sum
+handlers
+models
+templates
+static

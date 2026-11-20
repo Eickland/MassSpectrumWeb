@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MassSpectrumWeb{% endblock %} · MassSpectrumWeb</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar"><div class="inner">
+  <a class="brand" href="/samples">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 20h18"/><path d="M5 20V12"/><path d="M8 20V5"/><path d="M11 20v-9"/><path d="M14 20V8"/><path d="M17 20v-5"/><path d="M20 20v-3"/></svg>
+    MassSpectrumWeb
+  </a>
+  <nav class="nav">
+    <a href="/samples" class="{{ 'active' if page in ('samples','sample') }}">Пробы</a>
+    <a href="/projects" class="{{ 'active' if page in ('projects','project') }}">Проекты</a>
+    <a href="/analysis" class="{{ 'active' if page == 'analysis' }}">Анализ</a>
+    <a href="/journal" class="{{ 'active' if page == 'journal' }}">Лаб. журнал</a>
+    <a href="/upload" class="{{ 'active' if page == 'upload' }}">Загрузка</a>
+  </nav>
+</div></header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<div id="toast" class="toast"></div>
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

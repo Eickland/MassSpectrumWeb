@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Анализ{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Анализ и статистика</h1><div class="sub">Сравнение групп проб по дескрипторам (функции HumSpectra.pipeline), PCA, общие и специфичные формулы</div></div>
+</div>
+<div class="grid grid-side">
+  <aside class="panel" style="align-self:start">
+    <h2>1. Пробы</h2>
+    <div class="toolbar" style="margin-bottom:8px">
+      <select id="pick-project" class="grow"><option value="">Все проекты</option>{% for p in projects %}<option value="{{ p.name }}">{{ p.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="toolbar" style="margin-bottom:8px"><input type="search" id="pick-q" class="grow" placeholder="фильтр по шифру"></div>
+    <div class="actions" style="margin-bottom:8px"><button class="btn btn-sm" id="sel-all">Выбрать видимые</button><button class="btn btn-sm" id="sel-none">Снять все</button><span class="muted" id="sel-count" style="align-self:center"></span></div>
+    <div class="chk-list" id="pick-list">
+      {% for s in samples %}<label data-project="{{ s.project.name if s.project else '' }}" data-code="{{ s.code }}">
+        <input type="checkbox" value="{{ s.code }}" data-group="{{ s.group_label }}" data-pid="{{ s.project_id or '' }}">
+        <span style="flex:1;font-family:var(--mono);font-size:12.5px">{{ s.code }}</span>
+        <select class="man-g" style="display:none;padding:1px 4px;font-size:12px"><option>A</option><option>B</option><option>C</option><option>D</option></select>
+        <span class="muted" style="font-size:12px">{{ s.group_label }}</span></label>{% endfor %}
+    </div>
+    {% if not samples %}<p class="muted">Нет проб со спектрами.</p>{% endif %}
+
+    <h2 style="margin-top:18px">2. Группы</h2>
+    <div class="field"><select id="by" style="width:100%">
+      <option value="group">по полю «Группа» журнала</option>
+      <option value="project">по проекту</option>
+      <option value="regex">по шаблону в шифре (regex)</option>
+      <option value="manual">вручную</option>
+    </select></div>
+    <div id="regex-box" style="display:none">
+      <div class="form-grid" id="regex-rows">
+        <div class="field"><input type="text" class="rx-name" placeholder="имя группы" value="Baikal"></div><div class="field"><input type="text" class="rx-val" placeholder="regex" value="SLB"></div>
+        <div class="field"><input type="text" class="rx-name" placeholder="имя группы" value="Solzan"></div><div class="field"><input type="text" class="rx-val" placeholder="regex" value="SL\d"></div>
+      </div>
+      <button class="btn btn-sm" id="rx-add">+ группа</button>
+      <div class="hint">Первое совпадение выигрывает — как в <code>run_batch(groups=…)</code>.</div>
+    </div>
+    <div id="manual-hint" class="hint" style="display:none">Выберите группу A–D у каждой отмеченной пробы в списке выше.</div>
+    <div class="field" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="excl-poor"> исключить пробы с качеством «плохое»</label></div>
+    <div class="field"><label>Формула принадлежит группе, если встречается в ≥ доле проб</label><input type="number" id="presence" min="0.05" max="1" step="0.05" value="0.5" style="width:100px"></div>
+    <button class="btn btn-primary" id="run" style="width:100%;justify-content:center">Рассчитать</button>
+  </aside>
+
+  <section>
+    <div class="panel" id="result-empty"><div class="empty">Выберите пробы и способ группировки, затем нажмите «Рассчитать».</div></div>
+    <div class="panel" id="results" style="display:none">
+      <div class="tabs" id="tabs">
+        <button data-tab="stat" class="on">Статистика</button><button data-tab="box">Распределения</button>
+        <button data-tab="pca">PCA</button><button data-tab="ovl">Общие / специфичные формулы</button><button data-tab="tbl">Таблица дескрипторов</button>
+      </div>
+      <div class="tab-pane on" id="tab-stat">
+        <div class="toolbar"><span id="stat-head" class="muted"></span><span class="count"><label style="display:inline-flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="only-sig"> только q &lt; 0,05</label></span>
+          <button class="btn btn-sm" id="stat-csv">CSV</button></div>
+        <div class="table-wrap" style="max-height:640px"><table class="data compact" id="stat-tbl"></table></div>
+        <div class="hint">p — двусторонний критерий; q — поправка Бенджамини–Хохберга по всем дескрипторам; δ Клиффа &gt; 0 — значения в первой группе выше. Щёлкните строку, чтобы увидеть распределение.</div>
+      </div>
+      <div class="tab-pane" id="tab-box">
+        <div class="toolbar"><select id="box-sel" class="grow"></select></div>
+        <div id="ch-box" class="chart lg"></div>
+      </div>
+      <div class="tab-pane" id="tab-pca">
+        <div class="grid grid-2"><div><h3>Пробы (PC1 × PC2)</h3><div id="ch-pca" class="chart lg"></div></div><div><h3>Нагрузки (12 главных дескрипторов)</h3><div id="ch-load" class="chart lg"></div></div></div>
+        <div class="hint">Дескрипторы стандартизованы (z-оценки); n_formulas не используется.</div>
+      </div>
+      <div class="tab-pane" id="tab-ovl">
+        <div class="kpis" id="ovl-kpis"></div>
+        <div class="grid grid-2"><div><h3>Специфичные формулы групп на диаграмме Ван Кревелена</h3><div id="ch-ovl" class="chart lg"></div></div>
+          <div><h3>Сходство проб (индекс Жаккара по формулам)</h3><div id="ch-jac" class="chart lg"></div></div></div>
+        <div class="actions" style="margin-top:8px"><button class="btn btn-sm" id="ovl-csv">Специфичные формулы (CSV)</button></div>
+      </div>
+      <div class="tab-pane" id="tab-tbl">
+        <div class="toolbar"><button class="btn btn-sm" id="tbl-csv">Скачать CSV</button></div>
+        <div class="table-wrap" style="max-height:640px"><table class="data compact" id="desc-tbl"></table></div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/plotly.min.js"></script>
+<script>const LABELS = {{ labels|tojson }};</script>
+<script src="/static/js/analysis.js"></script>
+{% endblock %}

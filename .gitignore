@@ -1,0 +1,7 @@
+.env
+data/*.sqlite*
+__pycache__/
+.pytest_cache/
+# пакет выгрузки КНП-2026 и архив исходных результатов собираются/копируются скриптами
+data/knp_2026/export/
+data/knp_2026/source_results/

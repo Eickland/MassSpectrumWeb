@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Лабораторный журнал{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Лабораторный журнал</h1><div class="sub">Метаданные проб. Источник истины — база данных; Excel — для массового ввода и выгрузки</div></div>
+  <div class="actions">
+    <a class="btn" href="/journal/template.xlsx">Пустой шаблон</a>
+    <a class="btn" href="/journal/export.xlsx">Выгрузить в Excel</a>
+    <label class="btn" style="margin:0;color:var(--ink);font-size:14px">Импорт из Excel<input type="file" id="imp" accept=".xlsx" hidden></label>
+    <button class="btn btn-primary" id="btn-new">Новая проба</button>
+  </div>
+</div>
+<div class="toolbar">
+  <input type="search" id="q" class="grow" placeholder="Поиск по всем полям…">
+  <select id="f-project"><option value="">Все проекты</option>{% for p in projects %}<option>{{ p.name }}</option>{% endfor %}<option value="__none">Без проекта</option></select>
+  <span class="count" id="count"></span>
+</div>
+<div class="table-wrap">
+  <table class="data" id="tbl">
+    <thead><tr>{% for c in fields %}<th class="sortable">{{ c[1] }}</th>{% endfor %}<th class="sortable">Спектр</th><th></th></tr></thead>
+    <tbody>
+    {% for s in samples %}
+      <tr data-project="{{ s.project.name if s.project else '' }}" data-code="{{ s.code }}">
+        {% for c in fields %}{% set f = c[0] %}
+          {% if f == 'code' %}<td class="code"><a href="/samples/{{ s.code|urlencode }}">{{ s.code }}</a></td>
+          {% elif f == 'project' %}<td>{{ s.project.name if s.project else '' }}</td>
+          {% elif f in ('sampling_date', 'measured_at') %}{% set v = s[f] %}<td data-sort="{{ v.isoformat() if v else '' }}">{{ v|d }}</td>
+          {% elif f in ('description', 'notes', 'location') %}<td class="wrap">{{ s[f] }}</td>
+          {% else %}<td>{{ s[f] }}</td>{% endif %}
+        {% endfor %}
+        <td data-sort="{{ s.current.n_formulas if s.current else -1 }}">{{ (s.current.n_formulas ~ ' формул') if s.current else '—' }}</td>
+        <td><button class="btn btn-sm js-edit">Изменить</button></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if not samples %}<div class="empty">Журнал пуст. Добавьте пробу вручную или импортируйте Excel (подойдёт и старый lab_journal.xlsx).</div>{% endif %}
+</div>
+<p class="hint">Импорт сопоставляет строки по шифру пробы и не стирает уже внесённые данные пустыми ячейками. Пробы, для которых спектр загружен раньше записи в журнале, создаются автоматически — допишите их метаданные здесь.</p>
+{% include "_sample_dialog.html" %}
+{% endblock %}
+{% block scripts %}
+<script>
+  const t = document.getElementById('tbl'); makeSortable(t); makeFilter(t, { q: '#q', project: '#f-project', count: '#count' });
+  t.addEventListener('click', async e => {
+    if (!e.target.classList.contains('js-edit')) return;
+    const code = e.target.closest('tr').dataset.code;
+    openSampleDialog(await api(`/api/samples/${encodeURIComponent(code)}`), () => location.reload());
+  });
+  document.getElementById('btn-new').onclick = () => openSampleDialog(null, () => location.reload());
+  document.getElementById('imp').onchange = async e => {
+    const fd = new FormData(); fd.append('file', e.target.files[0]);
+    try {
+      const r = await api('/api/journal/import', { method: 'POST', body: fd });
+      toast(`Импорт: новых ${r.created}, обновлено ${r.updated}, проектов ${r.projects}` + (r.errors.length ? `; ошибок ${r.errors.length}: ${r.errors.slice(0, 3).join('; ')}` : ''), r.errors.length > 0);
+      setTimeout(() => location.reload(), r.errors.length ? 5000 : 1200);
+    } catch (err) { toast(err.message, true); }
+  };
+</script>
+{% endblock %}

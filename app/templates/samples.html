@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sample_rows, sample_head %}
+{% block title %}Пробы{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Реестр проб</h1>
+    <div class="sub">Все пробы лабораторного журнала и загруженные спектры FT-ICR MS</div>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/api/descriptors?format=csv">Дескрипторы (CSV)</a>
+    <a class="btn btn-primary" href="/upload">Загрузить спектры</a>
+  </div>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="v">{{ stats.samples }}</div><div class="l">проб в журнале</div></div>
+  <div class="kpi"><div class="v">{{ stats.with_spectra }}</div><div class="l">со спектрами</div></div>
+  <div class="kpi"><div class="v">{{ stats.projects }}</div><div class="l">проектов</div></div>
+  <div class="kpi"><div class="v">{{ "{:,}".format(stats.formulas).replace(",", " ") }}</div><div class="l">формул всего</div></div>
+  <div class="kpi"><div class="v" style="font-size:16px;padding-top:5px">{{ stats.last|dt or '—' }}</div><div class="l">последняя загрузка</div></div>
+</div>
+
+<div class="toolbar">
+  <input type="search" id="q" class="grow" placeholder="Поиск: шифр, проект, группа, место…">
+  <select id="f-project">
+    <option value="">Все проекты</option>
+    {% for p in projects %}<option>{{ p.name }}</option>{% endfor %}
+    <option value="__none">Без проекта</option>
+  </select>
+  <select id="f-quality">
+    <option value="">Любое качество</option>
+    <option value="good">хорошее</option>
+    <option value="reduced mass accuracy">сниженная точность</option>
+    <option value="poor">плохое</option>
+    <option value="none">нет спектра</option>
+  </select>
+  <button class="btn" id="btn-compare" disabled>Сравнить выбранные</button>
+  <span class="count" id="count"></span>
+</div>
+
+<div class="table-wrap">
+  <table class="data" id="tbl">
+    <thead>{{ sample_head(True, True) }}</thead>
+    <tbody>{{ sample_rows(samples, True, True) }}</tbody>
+  </table>
+  {% if not samples %}<div class="empty">Проб пока нет. Загрузите результаты конвейера на странице <a href="/upload">«Загрузка»</a> или импортируйте <a href="/journal">лабораторный журнал</a>.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const t = document.getElementById('tbl');
+  makeSortable(t);
+  const filt = makeFilter(t, {q: '#q', project: '#f-project', quality: '#f-quality', count: '#count'});
+  const btn = document.getElementById('btn-compare');
+  const upd = () => { const n = t.querySelectorAll('.row-chk:checked').length; btn.disabled = n < 2; btn.textContent = n ? `Сравнить выбранные (${n})` : 'Сравнить выбранные'; };
+  t.addEventListener('change', e => { if (e.target.id === 'chk-all') { t.querySelectorAll('tbody tr').forEach(r => { const c = r.querySelector('.row-chk'); if (c && !c.disabled && r.style.display !== 'none') c.checked = e.target.checked; }); } upd(); });
+  btn.onclick = () => { const s = [...t.querySelectorAll('.row-chk:checked')].map(c => c.value); location.href = '/analysis?samples=' + encodeURIComponent(s.join(',')); };
+</script>
+{% endblock %}
